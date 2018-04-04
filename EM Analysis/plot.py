@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.interpolate as scp
 import re
-
+from mpl_toolkits.mplot3d import axes3d
 
 def readComsolFile(filename):
 	"""
@@ -24,14 +25,14 @@ def readComsolFile(filename):
 		else:
 			# Split the line into individual values and convert to floats
 			splitString = re.sub('[\n]','',lines).split() 
-			data.append([float(i) for i in splitString])
+			data.append([float(i)for i in splitString]) # Rounds the input data to avoid some of Comsol variations
 		
 	file.close()
 	
 	return header, np.array(data)
 
 
-def plotSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-15):
+def plotSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12, gridSize=100, type='contour'):
 	"""
 	Plots of 2D slice of 3D Comsol Data 
 
@@ -60,23 +61,54 @@ def plotSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-15):
 	idxR, idxC = np.meshgrid(sliceIndices, columns)
 	slicedData = data[idxR, idxC]
 
+	# Define a regular grid that we will interpolate the data to
+	xi = np.linspace(np.amin(slicedData[0,:]), np.amax(slicedData[0,:]), gridSize)
+	yi = np.linspace(np.amin(slicedData[1,:]), np.amax(slicedData[1,:]), gridSize)
+	val = scp.griddata((slicedData[0,:], slicedData[1,:]), slicedData[2,:], (xi[None,:], yi[:,None]), method='linear')
 
-	# 2D interpolation of a regular grid against the known Comsol data so that we can perform a colormap
+	# Plot the interpolated values
+	if type is 'contour':
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.contour(xi, yi, val, 10, linewidth=0.5, colors='k')
+		cax = ax.contourf(xi, yi, val, 10, cmap=plt.cm.jet)
+		fig.colorbar(cax)
+		return fig, ax
 
-def 2DInterpolate(rawData, x, y):
+	elif type is 'mesh':
+		X, Y = np.meshgrid(xi,yi)
+		fig = plt.figure()
+		ax = fig.add_subplot(1,1,1, projection='3d')
+		ax.plot_wireframe(X, Y, val)
+		return fig, ax
+
+	else:
+		print('Error: a type of %s is not a valid input', type)
+		return None
+
+def interpolate2D(rawData, x, y):
 	"""
 	Takes in the regular grid we want interpolation points of (x, y) and interpolates them against the known results.
 	Returns a regular grid of the function
 
 	"""
+	return
 
 if __name__ == '__main__':
-	filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_export.txt'
+	filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_weighted_potential.txt'
 	testHeader, testData = readComsolFile(filename)
 	
-	print(len(testHeader))
-	print(len(testData))
-	
-
+	# Creating contour and wireframe plot
 	print('Test plot function\n')
-	plotSlice(testData, 0, 0, 3)
+	figC, axC = plotSlice(testData, 0, 1000, 4, gridSize=1000, type='contour')
+	figM, axM = plotSlice(testData, 0, 1000, 4, gridSize=1000, type='mesh')
+	# Contour plot
+	axC.set_title('Contour Plot of the Weighted Potential for a Coplanar Selenium Detector', fontsize=16)
+	axC.set_xlabel(r"Width ($\mu m$)", fontsize=14)
+	axC.set_ylabel(r"Depth ($\mu m$)", fontsize=14)
+	# Wireframe Plot
+	axM.set_title('Wireframe Plot of the Weighted Potential for a Coplanar Selenium Detector', fontsize=16)
+	axM.set_xlabel("\n"+r"Width ($\mu m$)", fontsize=14)
+	axM.set_ylabel("\n"+r"Depth ($\mu m$)", fontsize=14)
+	axM.set_zlabel(r"Weighted Potential (V)", fontsize=14)
+	plt.show()
