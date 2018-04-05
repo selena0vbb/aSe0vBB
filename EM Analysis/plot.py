@@ -86,13 +86,36 @@ def plotSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12, gridSize=100, type='
 		print('Error: a type of %s is not a valid input', type)
 		return None
 
-def interpolate2D(rawData, x, y):
+def findMotion(xi, E, vDrift, dt):
 	"""
-	Takes in the regular grid we want interpolation points of (x, y) and interpolates them against the known results.
-	Returns a regular grid of the function
+	Computes the position as a function of time (and therefore can be used with the weighted potential) using the drift velocity and E fields of the charge particle
+	The units must be consistent. For example the units of xi and the distance in vDrift must be the same. Same goes with xi and electric field.
 
+	Inputs
+		xi - initial position. Tuple of 3 points, x,y,z
+		E - the electric field at all point in the model. Nx6 matrix where N is the number of different grid points and 6 corresponds to x,y,z,Ex,Ey,Ez to fully describe the vector field
+		vDrift - drift velocity
+		dt = time step
+	Outputs
+		xt - the position of the function as a function of time. Nx4 matrix where N is the number of time steps and columns are x,y,z,t
 	"""
-	return
+	return None
+
+def inducedCharge(wPotentialA, wPotentialB, path, q=1.6e-19):
+	"""
+	Finds the induced charge at each electrode given a path of the the charged particle
+
+	Inputs:
+		wPotentialA - the weighted potential (V) from the A electrode. Nx4 numpy array
+		wPotentialB - the weighted potential (V) from the B electrode. Nx4 numpy array
+		path - the position to compute the weighted potential at. Nx1 numpy array
+		q - charge of the particle
+	Outputs:
+		qA - charge induced at electrode A
+		qB - charge induced at electrode B
+		qDiff - difference in the charge induced at electrode A and B
+	"""
+	return None
 
 if __name__ == '__main__':
 	filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_weighted_potential.txt'
