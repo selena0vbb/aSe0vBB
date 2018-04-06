@@ -31,6 +31,13 @@ def readComsolFile(filename):
 	
 	return header, np.array(data)
 
+def takeSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12):
+	"""
+	
+	
+	"""
+	return None
+
 
 def plotSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12, gridSize=100, type='contour'):
 	"""
@@ -86,36 +93,86 @@ def plotSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12, gridSize=100, type='
 		print('Error: a type of %s is not a valid input', type)
 		return None
 
-def findMotion(xi, E, vDrift, dt):
+def findMotion(xi, E, vDrift, dt, q=-1.6e-19):
 	"""
 	Computes the position as a function of time (and therefore can be used with the weighted potential) using the drift velocity and E fields of the charge particle
 	The units must be consistent. For example the units of xi and the distance in vDrift must be the same. Same goes with xi and electric field.
+	Computation done on a 2D slice (assumes translational invariance in one direction)
 
 	Inputs
-		xi - initial position. Tuple of 3 points, x,y,z
-		E - the electric field at all point in the model. Nx6 matrix where N is the number of different grid points and 6 corresponds to x,y,z,Ex,Ey,Ez to fully describe the vector field
-		vDrift - drift velocity
+		xi - initial position. Tuple of 2 points, x,y
+		E - the electric field at all point in the model. Nx4 matrix where N is the number of different grid points and 6 corresponds to x,y,Ex,Ey to fully describe the vector field
+		vDrift - drift velocity (length^2/(V*time))
 		dt = time step
 	Outputs
-		xt - the position of the function as a function of time. Nx4 matrix where N is the number of time steps and columns are x,y,z,t
+		xt - the position of the function as a function of time. Nx3 matrix where N is the number of time steps and columns are x,y,t
 	"""
-	return None
+	
+	# Defining coordinates and finding the max and min potentials values
+	t = 0
+	x = xi[0]
+	y = xi[1]
+	xmin, xmax = np.amin(E[:,0]), np.amax(E[:,0])
+	ymin, ymax = np.amin(E[:,1]), np.amax(E[:,0])
+	xt = [] 
+
+	# Create interpolating functions for the E fields
+	ExInter = scp.interp2d(E[:,0], E[:,1], E[:,2]) 
+	EyInter = scp.interp2d(E[:,0], E[:,1], E[:,3])
+	# While the charge carrier is in the selenium, keep finding the position
+	while(x < xmax and x > xmin and y < ymax and y > ymin):
+		xt.append([x,y,t])
+
+		# Interpolate for values of Ex and Ey at the specific position
+		Ex = ExInter(x, y)
+		Ey = EyInter(x, y)
+
+		# Solve equation of motion 
+		xNext = x + vDrift*Ex*np.sign(q)*dt
+		yNext = y + vDrift*Ey*np.sign(q)*dt
+
+		x = xNext
+		y = yNext
+		t = t + dt
+
+	# convert to numpy array and return the data
+	return np.array(xt)
+
 
 def inducedCharge(wPotentialA, wPotentialB, path, q=1.6e-19):
 	"""
 	Finds the induced charge at each electrode given a path of the the charged particle
 
 	Inputs:
-		wPotentialA - the weighted potential (V) from the A electrode. Nx4 numpy array
-		wPotentialB - the weighted potential (V) from the B electrode. Nx4 numpy array
-		path - the position to compute the weighted potential at. Nx1 numpy array
+		wPotentialA - the weighted potential (V) from the A electrode. Nx3 numpy array
+		wPotentialB - the weighted potential (V) from the B electrode. Nx3 numpy array
+		path - the position to compute the weighted potential at. Nx2 (x,y position at different time steps) numpy array
 		q - charge of the particle
 	Outputs:
 		qA - charge induced at electrode A
 		qB - charge induced at electrode B
 		qDiff - difference in the charge induced at electrode A and B
 	"""
-	return None
+	qA = []
+	qB = []
+
+	# Definte interplation functions
+	VaInter = scp.interp2d(wPotentialA[:,0], wPotentialA[:,1], wPotentialA[0:2])
+	VbInter = scp.interp2d(wPotentialB[:,0], wPotentialB[:,1], wPotentialB[0:2])
+
+	# Iterated over all the positions in the path
+	for i in range(path.shape[0]):
+		Va = VaInter(path[i,0], path[i,1])
+		Vb = VbInter(path[i,0], path[i,1])
+
+		# Find the q induced via the Shokley-Ramo Theorem
+		qA.append(-q*Va)
+		qB.append(-q*Vb)
+
+	qA, qB = np.array(qA), np.array(qB)
+	
+	return qA, qB, qA-qB
+
 
 if __name__ == '__main__':
 	filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_weighted_potential.txt'
@@ -135,3 +192,5 @@ if __name__ == '__main__':
 	axM.set_ylabel("\n"+r"Depth ($\mu m$)", fontsize=14)
 	axM.set_zlabel(r"Weighted Potential (V)", fontsize=14)
 	plt.show()
+
+	
