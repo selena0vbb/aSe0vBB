@@ -33,10 +33,22 @@ def readComsolFile(filename):
 
 def takeSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12):
 	"""
-	
+	Performs the same action as Plot Slice except returns the data instead of the figure
 	
 	"""
-	return None
+
+	# Find all values of the sliceVal within the sliceAxis. Use the indices that satisfy this condition for the rows
+	# and the remaining axis (x, y, or z) plus the function for the index of the columns
+	sliceAxis = data[:,sliceIdx]
+	columns = [ax for ax in range(0,3) if ax != sliceIdx]
+	columns.extend(funcIdx)
+	sliceIndices = np.nonzero((sliceAxis < sliceVal + eps) & (sliceAxis > sliceVal - eps))
+
+	# Create a grid from the indices calculated and apply it to the data to get the correct slice
+	idxR, idxC = np.meshgrid(sliceIndices, columns)
+	slicedData = data[idxR, idxC]
+
+	return slicedData
 
 
 def plotSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12, gridSize=100, type='contour'):
@@ -61,7 +73,7 @@ def plotSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12, gridSize=100, type='
 	# and the remaining axis (x, y, or z) plus the function for the index of the columns
 	sliceAxis = data[:,sliceIdx]
 	columns = [ax for ax in range(0,3) if ax != sliceIdx]
-	columns.append(funcIdx)
+	columns.extend(funcIdx)
 	sliceIndices = np.nonzero((sliceAxis < sliceVal + eps) & (sliceAxis > sliceVal - eps))
 
 	# Create a grid from the indices calculated and apply it to the data to get the correct slice
@@ -101,7 +113,7 @@ def findMotion(xi, E, vDrift, dt, q=-1.6e-19):
 
 	Inputs
 		xi - initial position. Tuple of 2 points, x,y
-		E - the electric field at all point in the model. Nx4 matrix where N is the number of different grid points and 6 corresponds to x,y,Ex,Ey to fully describe the vector field
+		E - the electric field at all point in the model. Nx4 matrix where N is the number of different grid points and 4 corresponds to x,y,Ex,Ey to fully describe the vector field
 		vDrift - drift velocity (length^2/(V*time))
 		dt = time step
 	Outputs
@@ -138,8 +150,7 @@ def findMotion(xi, E, vDrift, dt, q=-1.6e-19):
 	# convert to numpy array and return the data
 	return np.array(xt)
 
-
-def inducedCharge(wPotentialA, wPotentialB, path, q=1.6e-19):
+def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19):
 	"""
 	Finds the induced charge at each electrode given a path of the the charged particle
 
@@ -156,14 +167,24 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=1.6e-19):
 	qA = []
 	qB = []
 
+	# Define a regular grid that we will interpolate the data to
+	xi = np.linspace(np.amin(wPotentialA[:,0])+1, np.amax(wPotentialA[:,0])-1, 500)
+	yi = np.linspace(np.amin(wPotentialA[:,1])+1, np.amax(wPotentialA[:,1])-1, 500)
+	valA = scp.griddata((wPotentialA[:,0], wPotentialA[:,1]), wPotentialA[:,2], (xi[None,:], yi[:,None]), method='linear')
+	valB = scp.griddata((wPotentialB[:,0], wPotentialB[:,1]), wPotentialB[:,2], (xi[None,:], yi[:,None]), method='linear')
+	
+
 	# Definte interplation functions
-	VaInter = scp.interp2d(wPotentialA[:,0], wPotentialA[:,1], wPotentialA[0:2])
-	VbInter = scp.interp2d(wPotentialB[:,0], wPotentialB[:,1], wPotentialB[0:2])
+	VaInter = scp.interp2d(xi, yi, valA, kind='linear')
+	VbInter = scp.interp2d(xi, yi, valB, kind='linear')
+
 
 	# Iterated over all the positions in the path
 	for i in range(path.shape[0]):
+		print((path[i,0],path[i,1]))
 		Va = VaInter(path[i,0], path[i,1])
 		Vb = VbInter(path[i,0], path[i,1])
+	
 
 		# Find the q induced via the Shokley-Ramo Theorem
 		qA.append(-q*Va)
@@ -180,8 +201,8 @@ if __name__ == '__main__':
 	
 	# Creating contour and wireframe plot
 	print('Test plot function\n')
-	figC, axC = plotSlice(testData, 0, 1000, 4, gridSize=1000, type='contour')
-	figM, axM = plotSlice(testData, 0, 1000, 4, gridSize=1000, type='mesh')
+	figC, axC = plotSlice(testData, 0, 1000, [6], gridSize=1000, type='contour')
+	figM, axM = plotSlice(testData, 0, 1000, [6], gridSize=1000, type='mesh')
 	# Contour plot
 	axC.set_title('Contour Plot of the Weighted Potential for a Coplanar Selenium Detector', fontsize=16)
 	axC.set_xlabel(r"Width ($\mu m$)", fontsize=14)
@@ -191,6 +212,35 @@ if __name__ == '__main__':
 	axM.set_xlabel("\n"+r"Width ($\mu m$)", fontsize=14)
 	axM.set_ylabel("\n"+r"Depth ($\mu m$)", fontsize=14)
 	axM.set_zlabel(r"Weighted Potential (V)", fontsize=14)
+	# plt.show()
+
+	initialPos = (1000, 100) # in um
+	vDriftHoles = 0.19e6 # cm^2/(V*s)
+
+	eField = takeSlice(testData, 0, 1000, [4,5])/(1e6) # Converting V/m to V/um
+	# xt = findMotion(initialPos, eField.T,  vDriftHoles, 0.001)
+
+	# For finding the current induced (vs the signal generated), we can more easily just set y to a fixed value
+	# and vary z across the range of depth. If we choose y to be 
+	N = 500
+	z = np.linspace(21,219,N)
+	y = np.repeat(443,N)
+	pos = np.concatenate((y,z)).reshape(2,N).T
+
+	qA, qB, qDiff = inducedCharge(testData[:,(1,2,6)], testData[:,(1,2,9)], pos)
+	
+	
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	ax.plot(pos[:,1]-20,qA,'--', pos[:,1]-20,qB,'--', pos[:,1]-20, qDiff, linewidth=3)
+	ax.set_title(r'Induced Charge at a Coplanar Electrode. 100 $\mu m$ Spacing between fingers.', fontsize=16)
+	ax.set_xlabel(r'Depth ($\mu m$)', fontsize=14)
+	ax.set_ylabel(r'Induced Charge (C)', fontsize=14)
+	ax.legend(['qA','qB','qDiff'])
 	plt.show()
+
+	
+
 
 	
