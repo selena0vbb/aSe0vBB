@@ -150,7 +150,7 @@ def findMotion(xi, E, vDrift, dt, q=-1.6e-19):
 	# convert to numpy array and return the data
 	return np.array(xt)
 
-def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19):
+def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear'):
 	"""
 	Finds the induced charge at each electrode given a path of the the charged particle
 
@@ -170,21 +170,19 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19):
 	# Define a regular grid that we will interpolate the data to
 	xi = np.linspace(np.amin(wPotentialA[:,0])+1, np.amax(wPotentialA[:,0])-1, 500)
 	yi = np.linspace(np.amin(wPotentialA[:,1])+1, np.amax(wPotentialA[:,1])-1, 500)
-	valA = scp.griddata((wPotentialA[:,0], wPotentialA[:,1]), wPotentialA[:,2], (xi[None,:], yi[:,None]), method='linear')
-	valB = scp.griddata((wPotentialB[:,0], wPotentialB[:,1]), wPotentialB[:,2], (xi[None,:], yi[:,None]), method='linear')
+	valA = scp.griddata((wPotentialA[:,0], wPotentialA[:,1]), wPotentialA[:,2], (xi[None,:], yi[:,None]), method=method)
+	valB = scp.griddata((wPotentialB[:,0], wPotentialB[:,1]), wPotentialB[:,2], (xi[None,:], yi[:,None]), method=method)
 	
 
 	# Definte interplation functions
-	VaInter = scp.interp2d(xi, yi, valA, kind='linear')
-	VbInter = scp.interp2d(xi, yi, valB, kind='linear')
+	VaInter = scp.interp2d(xi, yi, valA, kind=method)
+	VbInter = scp.interp2d(xi, yi, valB, kind=method)
 
 
 	# Iterated over all the positions in the path
 	for i in range(path.shape[0]):
-		print((path[i,0],path[i,1]))
 		Va = VaInter(path[i,0], path[i,1])
 		Vb = VbInter(path[i,0], path[i,1])
-	
 
 		# Find the q induced via the Shokley-Ramo Theorem
 		qA.append(-q*Va)
