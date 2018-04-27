@@ -31,6 +31,38 @@ def readComsolFile(filename):
 	
 	return header, np.array(data)
 
+def readComsolFileGrid(filename):
+	"""
+	Reads E&M simulation files from Comsol that are output onto a regular grid. Returns data in numpy array
+	The outputs from this function are in a format such that interp2D accepts them correctly
+
+	Inputs:
+		filename - path to Comsol data file
+	Outputs:
+		header - list of all the Comsol header information
+		x - x positions in numpy array
+		y - y poisition in numpy array
+		data - Comsol data. NxM where N is len(x)*len(y) and M is the number of functions in the output file
+	"""
+	header, data = ([],[],)
+	file = open(filename,'r')
+	for lines in file:
+
+		# Seperate into header and data based of leading % sign. Cleanup of uncessesary symbols
+		if lines[0] == '%':
+			header.append(re.sub('[\n%]','',lines.replace(' ', '')))	
+		else:
+			# Split the line into individual values and convert to floats
+			splitString = re.sub('[\n]','',lines).split() 
+			data.append([float(i)for i in splitString]) # Rounds the input data to avoid some of Comsol variations
+	file.close()
+	data = np.array(data)
+	
+	func = data[:,np.arange(2,len(splitString))] # Seperates imported data into position and function
+	x, y = np.unique(data[:,0]), np.unique(data[:,1])
+	
+	return header, x, y, func
+
 def takeSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12):
 	"""
 	Performs the same action as Plot Slice except returns the data instead of the figure
@@ -51,15 +83,12 @@ def takeSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12):
 	return slicedData
 
 
-def plotSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12, gridSize=100, type='contour'):
+def plotPhi(pos, data, funcIdx, type='contour'):
 	"""
-	Plots of 2D slice of 3D Comsol Data 
+	Plots the potential (phi) of a 2D slice of comsol simulation
 
 	Inputs:
 		data - NxM numpy array of Comsol data organized in columns of axis position and then columns of the function values
-		sliceIdx - axis index that you want to take a slice. Numerical index that should correspond to x, y, or z axis
-		sliceVal - the value of the index you want a slice upon. Will return an empty data set and raise and error if no
-			data found with that value
 		funcIdx - index of the function to be plotted in the data set (column number)
 		eps - parameter to select similar values in a slice The way that Comsol sets up the grid means there are very
 			small variations even within what we would consider one slice. The eps makes it so we include everything
@@ -69,43 +98,34 @@ def plotSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12, gridSize=100, type='
 
 	"""
 
-	# Find all values of the sliceVal within the sliceAxis. Use the indices that satisfy this condition for the rows
-	# and the remaining axis (x, y, or z) plus the function for the index of the columns
-	sliceAxis = data[:,sliceIdx]
-	columns = [ax for ax in range(0,3) if ax != sliceIdx]
-	columns.extend(funcIdx)
-	sliceIndices = np.nonzero((sliceAxis < sliceVal + eps) & (sliceAxis > sliceVal - eps))
+	# Take the specific column of the funcIdx
+	if data.ndim > 1:
+		phi = np.reshape(data[:,funcIdx],(pos[1].size, pos[0].size))
+	else:
+		phi = np.reshape(data,(pos[1].size, pos[0].size))
 
-	# Create a grid from the indices calculated and apply it to the data to get the correct slice
-	idxR, idxC = np.meshgrid(sliceIndices, columns)
-	slicedData = data[idxR, idxC]
-
-	# Define a regular grid that we will interpolate the data to
-	xi = np.linspace(np.amin(slicedData[0,:]), np.amax(slicedData[0,:]), gridSize)
-	yi = np.linspace(np.amin(slicedData[1,:]), np.amax(slicedData[1,:]), gridSize)
-	val = scp.griddata((slicedData[0,:], slicedData[1,:]), slicedData[2,:], (xi[None,:], yi[:,None]), method='linear')
 
 	# Plot the interpolated values
 	if type is 'contour':
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
-		ax.contour(xi, yi, val, 10, linewidth=0.5, colors='k')
-		cax = ax.contourf(xi, yi, val, 10, cmap=plt.cm.jet)
+		ax.contour(pos[0], pos[1], phi, 10, linewidth=0.5, colors='k')
+		cax = ax.contourf(pos[0], pos[1], phi, 10, cmap=plt.cm.jet)
 		fig.colorbar(cax)
 		return fig, ax
 
 	elif type is 'mesh':
-		X, Y = np.meshgrid(xi,yi)
+		X, Y = np.meshgrid(pos[0],pos[1])
 		fig = plt.figure()
 		ax = fig.add_subplot(1,1,1, projection='3d')
-		ax.plot_wireframe(X, Y, val)
+		ax.plot_wireframe(X, Y, phi)
 		return fig, ax
 
 	else:
 		print('Error: a type of %s is not a valid input', type)
 		return None
 
-def findMotion(xi, E, vDrift, dt, q=-1.6e-19):
+def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19):
 	"""
 	Computes the position as a function of time (and therefore can be used with the weighted potential) using the drift velocity and E fields of the charge particle
 	The units must be consistent. For example the units of xi and the distance in vDrift must be the same. Same goes with xi and electric field.
@@ -124,13 +144,15 @@ def findMotion(xi, E, vDrift, dt, q=-1.6e-19):
 	t = 0
 	x = xi[0]
 	y = xi[1]
-	xmin, xmax = np.amin(E[:,0]), np.amax(E[:,0])
-	ymin, ymax = np.amin(E[:,1]), np.amax(E[:,0])
+	xmin, xmax = np.amin(E[0]), np.amax(E[0])
+	ymin, ymax = np.amin(E[1]), np.amax(E[1])
 	xt = [] 
 
+	
 	# Create interpolating functions for the E fields
-	ExInter = scp.interp2d(E[:,0], E[:,1], E[:,2]) 
-	EyInter = scp.interp2d(E[:,0], E[:,1], E[:,3])
+	ExInter = scp.interp2d(E[0], E[1], E[2], kind=method) 
+	EyInter = scp.interp2d(E[0], E[1], E[3], kind=method)
+
 	# While the charge carrier is in the selenium, keep finding the position
 	while(x < xmax and x > xmin and y < ymax and y > ymin):
 		xt.append([x,y,t])
@@ -143,6 +165,7 @@ def findMotion(xi, E, vDrift, dt, q=-1.6e-19):
 		xNext = x + vDrift*Ex*np.sign(q)*dt
 		yNext = y + vDrift*Ey*np.sign(q)*dt
 
+		# Assign the new version of x, y, and t
 		x = xNext
 		y = yNext
 		t = t + dt
@@ -155,8 +178,8 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear'):
 	Finds the induced charge at each electrode given a path of the the charged particle
 
 	Inputs:
-		wPotentialA - the weighted potential (V) from the A electrode. Nx3 numpy array
-		wPotentialB - the weighted potential (V) from the B electrode. Nx3 numpy array
+		wPotentialA - list including [x, y, Phi]. The x,y position pairs and the potential occuring at this. For electrode A
+		wPotentialB - list including [x, y, Phi]. The x,y position pairs and the potential occuring at this. For electrode B
 		path - the position to compute the weighted potential at. Nx2 (x,y position at different time steps) numpy array
 		q - charge of the particle
 	Outputs:
@@ -165,25 +188,18 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear'):
 		qDiff - difference in the charge induced at electrode A and B
 	"""
 	qA = []
-	qB = []
-
-	# Define a regular grid that we will interpolate the data to
-	xi = np.linspace(np.amin(wPotentialA[:,0])+1, np.amax(wPotentialA[:,0])-1, 500)
-	yi = np.linspace(np.amin(wPotentialA[:,1])+1, np.amax(wPotentialA[:,1])-1, 500)
-	valA = scp.griddata((wPotentialA[:,0], wPotentialA[:,1]), wPotentialA[:,2], (xi[None,:], yi[:,None]), method=method)
-	valB = scp.griddata((wPotentialB[:,0], wPotentialB[:,1]), wPotentialB[:,2], (xi[None,:], yi[:,None]), method=method)
-	
+	qB = []	
 
 	# Definte interplation functions
-	VaInter = scp.interp2d(xi, yi, valA, kind=method)
-	VbInter = scp.interp2d(xi, yi, valB, kind=method)
+	VaInter = scp.interp2d(wPotentialA[0], wPotentialA[1], np.reshape(wPotentialA[2],(wPotentialA[1].size, wPotentialA[0].size)), kind=method)
+	VbInter = scp.interp2d(wPotentialB[0], wPotentialB[1], np.reshape(wPotentialB[2],(wPotentialA[1].size, wPotentialA[0].size)), kind=method)
 
 
 	# Iterated over all the positions in the path
 	for i in range(path.shape[0]):
 		Va = VaInter(path[i,0], path[i,1])
 		Vb = VbInter(path[i,0], path[i,1])
-
+		# print(Va, path[i,0], path[i,1])
 		# Find the q induced via the Shokley-Ramo Theorem
 		qA.append(-q*Va)
 		qB.append(-q*Vb)
@@ -197,20 +213,20 @@ if __name__ == '__main__':
 	filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_weighted_potential.txt'
 	testHeader, testData = readComsolFile(filename)
 	
-	# Creating contour and wireframe plot
-	print('Test plot function\n')
-	figC, axC = plotSlice(testData, 0, 1000, [6], gridSize=1000, type='contour')
-	figM, axM = plotSlice(testData, 0, 1000, [6], gridSize=1000, type='mesh')
-	# Contour plot
-	axC.set_title('Contour Plot of the Weighted Potential for a Coplanar Selenium Detector', fontsize=16)
-	axC.set_xlabel(r"Width ($\mu m$)", fontsize=14)
-	axC.set_ylabel(r"Depth ($\mu m$)", fontsize=14)
-	# Wireframe Plot
-	axM.set_title('Wireframe Plot of the Weighted Potential for a Coplanar Selenium Detector', fontsize=16)
-	axM.set_xlabel("\n"+r"Width ($\mu m$)", fontsize=14)
-	axM.set_ylabel("\n"+r"Depth ($\mu m$)", fontsize=14)
-	axM.set_zlabel(r"Weighted Potential (V)", fontsize=14)
-	# plt.show()
+	# # Creating contour and wireframe plot
+	# print('Test plot function\n')
+	# figC, axC = plotSlice(testData, 0, 1000, [6], gridSize=1000, type='contour')
+	# figM, axM = plotSlice(testData, 0, 1000, [6], gridSize=1000, type='mesh')
+	# # Contour plot
+	# axC.set_title('Contour Plot of the Weighted Potential for a Coplanar Selenium Detector', fontsize=16)
+	# axC.set_xlabel(r"Width ($\mu m$)", fontsize=14)
+	# axC.set_ylabel(r"Depth ($\mu m$)", fontsize=14)
+	# # Wireframe Plot
+	# axM.set_title('Wireframe Plot of the Weighted Potential for a Coplanar Selenium Detector', fontsize=16)
+	# axM.set_xlabel("\n"+r"Width ($\mu m$)", fontsize=14)
+	# axM.set_ylabel("\n"+r"Depth ($\mu m$)", fontsize=14)
+	# axM.set_zlabel(r"Weighted Potential (V)", fontsize=14)
+	# # plt.show()
 
 	initialPos = (1000, 100) # in um
 	vDriftHoles = 0.19e6 # cm^2/(V*s)
@@ -236,9 +252,17 @@ if __name__ == '__main__':
 	ax.set_xlabel(r'Depth ($\mu m$)', fontsize=14)
 	ax.set_ylabel(r'Induced Charge (C)', fontsize=14)
 	ax.legend(['qA','qB','qDiff'])
-	plt.show()
-
 	
+	
+	gridFile = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_export.txt'
+	header, x, y, V = readComsolFileGrid(gridFile)
+	print(V.shape)
+	xx, yy = np.meshgrid(x,y)
+	z = np.reshape(V, (x.size, y.size))
+	fig2 = plt.figure()
+	ax2 = fig2.add_subplot(111)
+	ax2.contourf(x, y, z)
+	plt.show()
 
 
 	
