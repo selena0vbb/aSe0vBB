@@ -125,7 +125,7 @@ def plotPhi(pos, data, funcIdx, type='contour'):
 		print('Error: a type of %s is not a valid input', type)
 		return None
 
-def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19):
+def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 	"""
 	Computes the position as a function of time (and therefore can be used with the weighted potential) using the drift velocity and E fields of the charge particle
 	The units must be consistent. For example the units of xi and the distance in vDrift must be the same. Same goes with xi and electric field.
@@ -144,14 +144,18 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19):
 	t = 0
 	x = xi[0]
 	y = xi[1]
-	xmin, xmax = np.amin(E[0]), np.amax(E[0])
-	ymin, ymax = np.amin(E[1]), np.amax(E[1])
-	xt = [] 
+	if not limits:
+		xmin, xmax = np.amin(E[0]), np.amax(E[0])
+		ymin, ymax = np.amin(E[1]), np.amax(E[1])
+	else:
+		xmin, xmax = limits[0], limits[1]
+		ymin, ymax = limits[2], limits[3]
 
+	xt = [] 
 	
 	# Create interpolating functions for the E fields
-	ExInter = scp.interp2d(E[0], E[1], E[2], kind=method) 
-	EyInter = scp.interp2d(E[0], E[1], E[3], kind=method)
+	ExInter = scp.interp2d(E[0], E[1], np.reshape(E[2],(E[1].size, E[0].size)), kind=method) 
+	EyInter = scp.interp2d(E[0], E[1], np.reshape(E[3],(E[1].size, E[0].size)), kind=method)
 
 	# While the charge carrier is in the selenium, keep finding the position
 	while(x < xmax and x > xmin and y < ymax and y > ymin):
@@ -160,7 +164,7 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19):
 		# Interpolate for values of Ex and Ey at the specific position
 		Ex = ExInter(x, y)
 		Ey = EyInter(x, y)
-
+	
 		# Solve equation of motion 
 		xNext = x + vDrift*Ex*np.sign(q)*dt
 		yNext = y + vDrift*Ey*np.sign(q)*dt
