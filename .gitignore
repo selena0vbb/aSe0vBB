@@ -1,3 +1,6 @@
 # virtualenv files
 selenv/
 
+# particle simulation build files
+particle/selenium-build/
+
