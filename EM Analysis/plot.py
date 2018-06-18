@@ -83,7 +83,7 @@ def takeSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12):
 	return slicedData
 
 
-def plotPhi(pos, data, funcIdx, type='contour'):
+def plotPhi(pos, data, funcIdx, type='contour', figH=None):
 	"""
 	Plots the potential (phi) of a 2D slice of comsol simulation
 
@@ -93,6 +93,7 @@ def plotPhi(pos, data, funcIdx, type='contour'):
 		eps - parameter to select similar values in a slice The way that Comsol sets up the grid means there are very
 			small variations even within what we would consider one slice. The eps makes it so we include everything
 			within the range of sliceVal +/- eps
+		figH - tuple with (fig, ax)
 	Outputs:
 		figHandle - handle to the python plot created by the function
 
@@ -104,20 +105,25 @@ def plotPhi(pos, data, funcIdx, type='contour'):
 	else:
 		phi = np.reshape(data,(pos[1].size, pos[0].size))
 
+	print('Hello World')
 
-	# Plot the interpolated values
-	if type is 'contour':
+	if not figH:
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
+	else:
+		fig = figH[0]
+		ax = figH[1]
+
+	print('Test')
+	# Plot the interpolated values
+	if type is 'contour':
 		ax.contour(pos[0], pos[1], phi, 10, linewidth=0.5, colors='k')
-		cax = ax.contourf(pos[0], pos[1], phi, 10, cmap=plt.cm.jet)
-		fig.colorbar(cax)
-		return fig, ax
+		cax = ax.contourf(pos[0], pos[1], phi, 10, cmap=plt.cm.jet, vmin=np.amin(phi), vmax=np.amax(phi))
+		return fig, ax, cax
 
 	elif type is 'mesh':
 		X, Y = np.meshgrid(pos[0],pos[1])
-		fig = plt.figure()
-		ax = fig.add_subplot(1,1,1, projection='3d')
+		# ax = fig.add_subplot(1,1,1, projection='3d')
 		ax.plot_wireframe(X, Y, phi)
 		return fig, ax
 
@@ -176,6 +182,23 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 
 	# convert to numpy array and return the data
 	return np.array(xt)
+
+def plotEField(Efield):
+	"""
+	Makes a vector field plot of the electric field using matplotlib 
+
+	Inputs:
+		Efield - list in the form [x, y, Ex, Ey] just like the other functions.
+				x - Nx1 numpy array of x data points
+				y - Mx1 numpy array of y data points
+				Ex - (M*N)x1 numpy array corresponding to an Ex at every point on the grid
+				Ey - (M*N)x1 numpy array corresponding to an Ey at every point on the grid
+	Outputs:
+		ax - handle to the axis of the created figure
+	"""
+
+	# Paceholder code
+	return None
 
 def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear'):
 	"""
