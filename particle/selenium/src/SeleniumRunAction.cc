@@ -23,8 +23,8 @@ SeleniumRunAction::SeleniumRunAction(G4String name) : G4UserRunAction()
 	analysisManager->SetFirstHistoId(1);
 
 	// Create the histograms
-	analysisManager->CreateH1("EneDepSe", "Energy Deposited in Selenium", 100, 0., 100.*keV, "eV");
-	analysisManager->CreateH1("EneDepAu", "Energy Deposited in Gold Electrode", 100, 0., 100.*keV, "eV");
+	analysisManager->CreateH1("EneDepSe", "Energy Deposited in Selenium", 100, 0., 140.*keV, "keV");
+	analysisManager->CreateH1("EneDepAu", "Energy Deposited in Gold Electrode", 100, 0., 140.*keV, "keV");
 	filename = OUTPUTDIR + name + "_keV";
 	analysisManager->SetFileName(filename);
 
