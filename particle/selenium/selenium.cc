@@ -3,8 +3,9 @@
 
 #include "SeleniumDetectorConstruction.hh"
 #include "SeleniumActionInitialization.hh"
-
-#include "G4EmPenelopePhysics.hh"
+#include "SeleniumPhysicsList.hh"
+#include "DAMICPhysicsList.hh"
+#include "DAMICPhysicsListLivermore.hh"
 
 #include "G4RunManager.hh"
 #include "G4VisExecutive.hh"
@@ -48,11 +49,11 @@ int main(int argc, char** argv)
 
 	// Defining the physics we want to use
 	G4cout << "Physics" << G4endl;
-	G4VPhysicsConstructor* physicsList = new G4EmPenelopePhysics();
-	physicsList->SetVerboseLevel(1);
-	physicsList->ConstructProcess();
-	manager->SetUserInitialization(physicsList);
-
+	SeleniumPhysicsList* physics = new SeleniumPhysicsList();
+	// DAMICPhysicsListLivermore* physics = new DAMICPhysicsListLivermore();
+	// DAMICPhysicsList* physics = new DAMICPhysicsList();
+	manager->SetUserInitialization(physics);
+	
 	// Set User action initialization
 	G4cout << "User Action Initialization" << G4endl;
 	manager->SetUserInitialization(new SeleniumActionInitialization(filename, detector));

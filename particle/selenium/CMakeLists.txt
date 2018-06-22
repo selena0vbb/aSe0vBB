@@ -38,5 +38,19 @@ target_link_libraries(selenium ${Geant4_LIBRARIES})
 
 #------------------------------------------------------------------
 # Copy useful files from source to build directories
-# To be populated later
+
+set(SELENIUM_SCRIPTS
+  122.mac
+  136.mac
+  plotHist.c
+)
+
+foreach(_script ${SELENIUM_SCRIPTS})
+	configure_file(
+		${PROJECT_SOURCE_DIR}/${_script}
+		${PROJECT_BINARY_DIR}/${_script}
+		COPYONLY
+	)
+endforeach()
+
 
