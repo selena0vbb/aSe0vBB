@@ -35,9 +35,15 @@ void SeleniumEventAction::EndOfEventAction(const G4Event* event)
 {
 	// Get analysis manager
 	G4AnalysisManager* analysisManager = G4AnalysisManager::Instance();
-
 	// Add deposited energy to histograms
-	analysisManager->FillH1(0, fEnergyDepositSe);
-	analysisManager->FillH1(1, fEnergyDepositAu);
+	if ( fEnergyDepositSe > 0. )
+	{
+		analysisManager->FillH1(1, fEnergyDepositSe);	
+	}
+	if ( fEnergyDepositAu > 0. )
+	{
+		analysisManager->FillH1(2, fEnergyDepositAu);	
+	}
+	
 
 }
