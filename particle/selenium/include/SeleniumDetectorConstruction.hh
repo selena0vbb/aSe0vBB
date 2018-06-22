@@ -17,7 +17,6 @@ class SeleniumDetectorConstruction : public G4VUserDetectorConstruction
 
 	public:
 		virtual G4VPhysicalVolume* Construct();
-		virtual void ConstructSDandField();
 
 		// Methods to get the physical volumes of the different parts of the detector
 		const G4VPhysicalVolume* GetSeleniumPV() const;

@@ -68,12 +68,12 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 
 	// Define the world size and create the world
 	G4double worldSizeXY = 3*seleniumXY;
-	G4double worldSizeZ = 20 * mm;
+	G4double worldSizeZ = 10 * mm;
 
 	G4Box* solidWorld = new G4Box(	"World",
-									worldSizeXY, // world x dimension
-									worldSizeXY, // world y dimension
-									worldSizeZ); // world z dimension
+									worldSizeXY/2, // world x dimension
+									worldSizeXY/2, // world y dimension
+									worldSizeZ/2); // world z dimension
 	G4LogicalVolume* logicalWorld = 
 		new G4LogicalVolume(solidWorld, 	// solid object associated with logical volume
 							defaultMat, 	// material of the world
@@ -91,16 +91,16 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 
 	// Define Selenium block for detector
 	G4Box* seleniumS = new G4Box("Selenium",
-								seleniumXY,
-								seleniumXY,
-								seleniumDepth);
+								seleniumXY/2,
+								seleniumXY/2,
+								seleniumDepth/2);
 
 	G4LogicalVolume* seleniumLV = 
 		new G4LogicalVolume(seleniumS,
 							Se,
 							"Selenium");
 
-	G4VPhysicalVolume* fSeleniumPV = 
+	fSeleniumPV = 
 		new G4PVPlacement(	0,
 							G4ThreeVector(),
 							seleniumLV,
@@ -121,7 +121,7 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 	G4LogicalVolume* electrodeLV = new G4LogicalVolume(electrodeS, Au, "Electrode");
 
 	G4ThreeVector electrodeOffset = G4ThreeVector(0, 0, seleniumDepth/2 + goldElectrodeDepth/2);
-	G4VPhysicalVolume* fElectrodePV = 
+	fElectrodePV = 
 		new G4PVPlacement( 	0,
 							G4ThreeVector(0, 0, seleniumDepth/2 + goldElectrodeDepth/2),
 							electrodeLV,
