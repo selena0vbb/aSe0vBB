@@ -1,0 +1,14 @@
+# Set up verbose commands
+/control/verbose 0
+/run/verbose 0
+/run/initialize
+/tracking/verbose 0
+/event/verbose 0
+
+#/gps/ene/mono 122 keV
+#/gps/pos/centre 0 0 0 meter
+#/gps/ang/type iso
+#/gps/ang/maxtheta 30 deg
+/analysis/setFileName ./output/122_keV_Simple_Physics.root
+/run/beamOn 200000
+

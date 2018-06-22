@@ -1,0 +1,5 @@
+/gps/ene/mono 136 keV
+/gps/pos/centre 0 0 0 meter
+/gps/ang/type iso
+/analysis/setFileName 136_keV.root
+/analysis/h1/set 1 600 0 150 keV
