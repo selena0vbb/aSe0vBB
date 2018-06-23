@@ -1,5 +1,13 @@
-/gps/ene/mono 136 keV
-/gps/pos/centre 0 0 0 meter
-/gps/ang/type iso
-/analysis/setFileName 136_keV.root
-/analysis/h1/set 1 600 0 150 keV
+# Set up verbose commands
+/control/verbose 0
+/run/verbose 0
+/run/initialize
+/tracking/verbose 0
+/event/verbose 0
+
+#/gps/ene/mono 136 keV
+#/gps/pos/centre 0 0 0 meter
+#/gps/ang/type iso
+#/gps/ang/maxtheta 30 deg
+/analysis/setFileName ./output/136_keV_Simple_Physicslarge.root
+/run/beamOn 8000000
