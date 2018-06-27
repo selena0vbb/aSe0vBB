@@ -1,6 +1,7 @@
 // Primary Generator Action code
 
 #include "SeleniumPrimaryGeneratorAction.hh"
+#include "SimulationSettings.hh"
 
 #include "G4RunManager.hh"
 #include "G4Event.hh"
@@ -20,29 +21,26 @@ SeleniumPrimaryGeneratorAction::SeleniumPrimaryGeneratorAction()
 {
 
 	// // Create a GPS and assign it to fParticleGun
-	// fParticleGun = new G4GeneralParticleSource();
+	fParticleGun = new G4GeneralParticleSource();
 
 	// // Get the gamma particle from table
 	G4ParticleTable* particleTable = G4ParticleTable::GetParticleTable();
 	G4String particleType = "gamma";
 	G4ParticleDefinition* particle = particleTable->FindParticle(particleType);
 
-	// // Print particle information
-	// G4cout << particle << G4endl;
-
-	// // Assign particle to source
-	// fParticleGun->SetParticleDefinition(particle);
-	// // Optional. Setting particle parameters. Can also do with macro
+	// Assign particle to source
+	fParticleGun->SetParticleDefinition(particle);
+	// Optional. Setting particle parameters. Can also do with macro
 	// fParticleGun->SetParticleEnergy(122.*keV);
 	// fParticleGun->SetParticleMomentumDirection(G4ThreeVector(0.,0.,-1.));
 
 	// Using Particle gun for first pass simplicity
-	G4int nOfParticles = 1;
-	fParticleGun = new G4ParticleGun(nOfParticles);
+	// G4int nOfParticles = 1;
+	// fParticleGun = new G4ParticleGun(nOfParticles);
 
-	fParticleGun->SetParticleDefinition(particle);
-	fParticleGun->SetParticleMomentumDirection(G4ThreeVector(0., 0., -1.));
-	fParticleGun->SetParticleEnergy(122.*keV);
+	// fParticleGun->SetParticleDefinition(particle);
+	// fParticleGun->SetParticleMomentumDirection(G4ThreeVector(0., 0., -1.));
+	// fParticleGun->SetParticleEnergy(136.*keV);
 
 
 }
