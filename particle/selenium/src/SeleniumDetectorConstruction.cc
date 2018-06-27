@@ -1,6 +1,7 @@
 // SeleniumDetectorConstruction Implementation
 
 #include "SeleniumDetectorConstruction.hh"
+#include "SeleniumSD.hh"
 
 #include "G4NistManager.hh"
 #include "G4Box.hh"
@@ -17,6 +18,9 @@
 #include "G4VisAttributes.hh"
 #include "G4PhysicalConstants.hh"
 #include "G4SystemOfUnits.hh"
+#include "SimulationSettings.hh"
+
+
 
 #include <cmath>
 
@@ -50,12 +54,7 @@ void SeleniumDetectorConstruction::defineMaterials()
 G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 {
 
-	// Define the geometric parameters that we know of
-	G4double seleniumXY = 10 * mm;
-	G4double seleniumDepth = 0.2 * mm;
-	G4double goldElectrodeArea = 2 * mm2;
-	G4double goldElectrodeDepth = 10 * nm;
-
+	// Compute important geometric properties
 	G4double goldElectrodeRadius = std::sqrt(goldElectrodeArea / pi) * mm;
 
 	G4bool checkOverlaps = true;
@@ -130,6 +129,18 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 							false,
 							0);
 
+
+	// Setting up sensitive detector for the selenium body
+
+	// Create a new selenium sensitive detector
+	SeleniumSD* detector = new SeleniumSD("SeleniumSD", seleniumHitsCollectionName);
+
+	// Get pointer to SD manager
+	G4SDManager* sdManager = G4SDManager::GetSDMpointer();
+	sdManager->AddNewDetector(detector);
+
+	// Attach selenium logical volume with the new sensitive detector
+	seleniumLV->SetSensitiveDetector(detector);
 
 	// Set up visualization attributes
 		

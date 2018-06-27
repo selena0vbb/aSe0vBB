@@ -22,9 +22,13 @@ SeleniumRunAction::SeleniumRunAction(G4String name) : G4UserRunAction()
 	analysisManager->SetVerboseLevel(1);
 	analysisManager->SetFirstHistoId(1);
 
-	// Create the histograms
+	// Create the histograms for total energy deposition
 	analysisManager->CreateH1("EneDepSe", "Energy Deposited in Selenium", 100, 0., 140.*keV, "keV");
 	analysisManager->CreateH1("EneDepAu", "Energy Deposited in Gold Electrode", 100, 0., 140.*keV, "keV");
+
+	// Create histogram for energy distribution as a function of depth
+	analysisManager->CreateH1("EneVDepth", "Energy Deposited Distribution as a Function of Depth", 500, -seleniumDepth/2 * um, seleniumDepth/2 * um, "um");
+
 	filename = OUTPUTDIR + name + "_keV";
 	analysisManager->SetFileName(filename);
 
