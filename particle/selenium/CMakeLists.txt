@@ -43,6 +43,7 @@ set(SELENIUM_SCRIPTS
   122.mac
   136.mac
   plotHist.c
+  plotCo57.c
 )
 
 foreach(_script ${SELENIUM_SCRIPTS})
