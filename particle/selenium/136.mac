@@ -5,9 +5,9 @@
 /tracking/verbose 0
 /event/verbose 0
 
-#/gps/ene/mono 136 keV
+/gps/ene/mono 136 keV
 #/gps/pos/centre 0 0 0 meter
-#/gps/ang/type iso
-#/gps/ang/maxtheta 30 deg
-/analysis/setFileName ./output/136_keV_Simple_Physicslarge.root
-/run/beamOn 8000000
+/gps/ang/type iso
+/gps/ang/maxtheta 30 deg
+/analysis/setFileName ./output/136_keV_testTuple.root
+/run/beamOn 10000
