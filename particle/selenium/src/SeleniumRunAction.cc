@@ -26,8 +26,18 @@ SeleniumRunAction::SeleniumRunAction(G4String name) : G4UserRunAction()
 	analysisManager->CreateH1("EneDepSe", "Energy Deposited in Selenium", 100, 0., 140.*keV, "keV");
 	analysisManager->CreateH1("EneDepAu", "Energy Deposited in Gold Electrode", 100, 0., 140.*keV, "keV");
 
-	// Create histogram for energy distribution as a function of depth
-	analysisManager->CreateH1("EneVDepth", "Energy Deposited Distribution as a Function of Depth", 500, -seleniumDepth/2 * um, seleniumDepth/2 * um, "um");
+	// Creating Ntuple to store hit data in
+	analysisManager->CreateNtuple("aSeData", "Selenium Hit Data");
+	analysisManager->CreateNtupleIColumn("EventID");
+	analysisManager->CreateNtupleIColumn("TrackID");
+	analysisManager->CreateNtupleIColumn("ParentID");
+	analysisManager->CreateNtupleDColumn("x");
+	analysisManager->CreateNtupleDColumn("y");
+	analysisManager->CreateNtupleDColumn("z");
+	analysisManager->CreateNtupleDColumn("energy");
+	analysisManager->CreateNtupleSColumn("ParticleType");
+	analysisManager->CreateNtupleSColumn("ProcessName");
+	analysisManager->FinishNtuple();
 
 	filename = OUTPUTDIR + name + "_keV";
 	analysisManager->SetFileName(filename);

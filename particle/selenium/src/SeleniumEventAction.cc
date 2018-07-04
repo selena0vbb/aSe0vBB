@@ -61,23 +61,25 @@ void SeleniumEventAction::EndOfEventAction(const G4Event* event)
 	if (seleniumHCID >= 0)
 	{
 		SeleniumHitsCollection* hc = dynamic_cast<SeleniumHitsCollection*>(hce->GetHC(seleniumHCID));
-
-		// Define the parameters we put in the histogram
-		G4double zPosition = 0.;
-		G4double edep = 0.;
-
-		// Get number of hits. Iterate over all and add to histogram
+		SeleniumHit* hit;
+		G4int eventID = event->GetEventID();
+		// Get number of hits. Iterate over all and add to Ntuple
 		G4int numberOfHits = hc->GetSize();
+		G4cout << numberOfHits << G4endl;
 		for( int i = 0; i < numberOfHits; i++)
 		{
-			SeleniumHit* hit = (*hc)[i];
-			// Check to see if electron caused the hit
-			if ( hit->GetParticleDefinition()->GetParticleName() == "e-")
-			{
-				zPosition = hit->GetPosition().getZ()*um;
-				edep = hit->GetEdep()*eV;
-				analysisManager->FillH1(3, zPosition, edep);
-			}
+			hit = (*hc)[i];
+			G4cout << hit->GetCreatorProcessName() << G4endl;
+			analysisManager->FillNtupleIColumn(0, eventID);
+			analysisManager->FillNtupleIColumn(1, hit->GetTrackID());
+			analysisManager->FillNtupleIColumn(2, hit->GetParentID());
+			analysisManager->FillNtupleDColumn(3, hit->GetPosition().getX());
+			analysisManager->FillNtupleDColumn(4, hit->GetPosition().getY());
+			analysisManager->FillNtupleDColumn(5, hit->GetPosition().getZ());
+			analysisManager->FillNtupleDColumn(6, hit->GetEdep());
+			analysisManager->FillNtupleSColumn(7, hit->GetParticleDefinition()->GetParticleName());
+			analysisManager->FillNtupleSColumn(8, hit->GetCreatorProcessName());
+			analysisManager->AddNtupleRow();
 
 		}
 
