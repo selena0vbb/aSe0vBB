@@ -47,10 +47,24 @@ G4bool SeleniumSD::ProcessHits(G4Step* step, G4TouchableHistory* history)
 	SeleniumHit* hit = new SeleniumHit();
 
 	// Set track ID, energy deposited, position, and particle of the hit
-	hit->SetTrackID( step->GetTrack()->GetTrackID());
+	hit->SetTrackID(step->GetTrack()->GetTrackID());
+	hit->SetParentID(step->GetTrack()->GetParentID());
 	hit->SetEdep(edep);
 	hit->SetPosition(step->GetPostStepPoint()->GetPosition());
 	hit->SetParticleDefinition(step->GetTrack()->GetDefinition());
+
+	// Try to get the creator process
+	if(step->GetTrack()->GetCreatorProcess() == 0)
+	{
+		G4cout<< "Primary Particle" << G4endl;
+		G4String message = "Primary Particle";
+		hit->SetCreatorProcessName(message	);
+	}
+	else
+	{
+		// G4cout << step->GetTrack()->GetCreatorProcess() << G4endl;
+		hit->SetCreatorProcessName(step->GetTrack()->GetCreatorProcess()->GetProcessName());
+	}
 
 	// Add hit to hit collection
 	fHitsCollection->insert(hit);

@@ -8,6 +8,7 @@
 #include "G4Allocator.hh"
 #include "G4ThreeVector.hh"
 #include "G4ParticleDefinition.hh"
+#include "G4VProcess.hh"
 #include "tls.hh"
 
 class SeleniumHit : public G4VHit
@@ -28,23 +29,29 @@ class SeleniumHit : public G4VHit
 
 		// Set methods
 		void SetTrackID(G4int track) { fTrackID = track; };
+		void SetParentID(G4int parent) { fParentID = parent; };
 		void SetEdep(G4double energy) { fEdep = energy; };
 		void SetPosition(G4ThreeVector xyz) { fPos = xyz; };
-		void SetParticleDefinition(G4ParticleDefinition* particle) { fParticleDefinition = particle; }
+		void SetParticleDefinition(G4ParticleDefinition* particle) { fParticleDefinition = particle; };
+		void SetCreatorProcessName(G4String processName) { fCreatorProcessName = processName; };
 
 		// Get methods
 		G4int GetTrackID() const { return fTrackID; };
+		G4int GetParentID() const { return fParentID; };
 		G4double GetEdep() const { return fEdep; };
 		G4ThreeVector GetPosition() const { return fPos; };
 		G4ParticleDefinition* GetParticleDefinition() const{ return fParticleDefinition; };
+		G4String GetCreatorProcessName() const { return fCreatorProcessName; };
 
 	private:
 	
 		// Set up member of track ID, position and energy
 		G4int fTrackID;
+		G4int fParentID;
 		G4double fEdep;
 		G4ThreeVector fPos;
 		G4ParticleDefinition* fParticleDefinition;
+		G4String fCreatorProcessName;
 };
 
 typedef G4THitsCollection<SeleniumHit> SeleniumHitsCollection;
