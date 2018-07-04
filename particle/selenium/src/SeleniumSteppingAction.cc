@@ -42,6 +42,4 @@ void SeleniumSteppingAction::UserSteppingAction(const G4Step* step)
 		fEventAction->addEnergyDepAu(eDepStep);
 	}
 
-	// Determine the location of the current step (Au or Se)
-	// Place the energy deposition in the correct category
 }
