@@ -56,9 +56,8 @@ G4bool SeleniumSD::ProcessHits(G4Step* step, G4TouchableHistory* history)
 	// Try to get the creator process
 	if(step->GetTrack()->GetCreatorProcess() == 0)
 	{
-		G4cout<< "Primary Particle" << G4endl;
 		G4String message = "Primary Particle";
-		hit->SetCreatorProcessName(message	);
+		hit->SetCreatorProcessName(message);
 	}
 	else
 	{

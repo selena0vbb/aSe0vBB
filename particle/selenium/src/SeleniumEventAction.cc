@@ -69,7 +69,6 @@ void SeleniumEventAction::EndOfEventAction(const G4Event* event)
 		for( int i = 0; i < numberOfHits; i++)
 		{
 			hit = (*hc)[i];
-			G4cout << hit->GetCreatorProcessName() << G4endl;
 			analysisManager->FillNtupleIColumn(0, eventID);
 			analysisManager->FillNtupleIColumn(1, hit->GetTrackID());
 			analysisManager->FillNtupleIColumn(2, hit->GetParentID());
