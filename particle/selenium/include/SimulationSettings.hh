@@ -17,4 +17,8 @@ const G4double goldElectrodeDepth = 10 * nm;
 // Sensitive Detector parameters
 const G4String seleniumHitsCollectionName = "SeleniumHitsCollection";
 
+// Defining default units to use to keep analysis consistent
+const double DEFAULT_LENGTH = mm;
+const double DEFAULT_ENERGY = keV;
+
 #endif
