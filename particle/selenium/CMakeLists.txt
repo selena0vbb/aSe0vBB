@@ -42,6 +42,7 @@ target_link_libraries(selenium ${Geant4_LIBRARIES})
 set(SELENIUM_SCRIPTS
   122.mac
   136.mac
+  14.mac
   plotHist.c
   plotCo57.c
 )

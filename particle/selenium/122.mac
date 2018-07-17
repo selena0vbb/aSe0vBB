@@ -6,9 +6,9 @@
 /event/verbose 0
 
 /gps/ene/mono 122 keV
-#/gps/pos/centre 0 0 0 meter
+/gps/pos/centre 0 0 5 mm
 /gps/ang/type iso
-/gps/ang/maxtheta 30 deg
+/gps/ang/maxtheta 9 deg
 /analysis/setFileName ./output/122_keV_testTuple.root
-/run/beamOn 10000
+/run/beamOn 7000
 
