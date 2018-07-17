@@ -180,6 +180,16 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 		y = yNext
 		t = t + dt
 
+	# Add value at the limit
+	if x > xmax:
+		xt.append([xmax, y, t])
+	elif x < xmin:
+		xt.append([xmin, y, t])
+	elif y > ymax:
+		xt.append([x, ymax, t])
+	else:
+		xt.append([x, ymin, t])
+		
 	# convert to numpy array and return the data
 	return np.array(xt)
 
@@ -199,6 +209,19 @@ def plotEField(Efield):
 
 	# Paceholder code
 	return None
+
+def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear'):
+
+	qi = []
+
+	wPInter = scp.interp2d(wPotential[0], wPotential[1], np.reshape(wPotential[2],(wPotential[1].size, wPotential[0].size)), kind=method)
+	
+	for i in range(path.shape[0]):
+
+		wP = wPInter(path[i,0], path[i,1])
+		qi.append(-q*wP[0])
+
+	return qi 
 
 def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear'):
 	"""
