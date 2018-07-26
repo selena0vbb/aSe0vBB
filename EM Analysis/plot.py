@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import scipy.interpolate as scp
 import re
 from mpl_toolkits.mplot3d import axes3d
+import brewer2mpl
 
 def readComsolFile(filename):
 	"""
@@ -83,7 +84,7 @@ def takeSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12):
 	return slicedData
 
 
-def plotPhi(pos, data, funcIdx, type='contour', figH=None):
+def plotPhi(pos, data, funcIdx, type='contour', figH=None, color='Reds'):
 	"""
 	Plots the potential (phi) of a 2D slice of comsol simulation
 
@@ -105,8 +106,6 @@ def plotPhi(pos, data, funcIdx, type='contour', figH=None):
 	else:
 		phi = np.reshape(data,(pos[1].size, pos[0].size))
 
-	print('Hello World')
-
 	if not figH:
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
@@ -114,11 +113,10 @@ def plotPhi(pos, data, funcIdx, type='contour', figH=None):
 		fig = figH[0]
 		ax = figH[1]
 
-	print('Test')
 	# Plot the interpolated values
 	if type is 'contour':
-		ax.contour(pos[0], pos[1], phi, 10, linewidth=0.5, colors='k')
-		cax = ax.contourf(pos[0], pos[1], phi, 10, cmap=plt.cm.jet, vmin=np.amin(phi), vmax=np.amax(phi))
+		ax.contour(pos[0], pos[1], phi, 8, linewidth=0.5, colors='k')
+		cax = ax.contourf(pos[0], pos[1], phi, 8, cmap=brewer2mpl.get_map(color, 'sequential', 8).mpl_colormap, vmin=np.amin(phi), vmax=np.amax(phi))
 		return fig, ax, cax
 
 	elif type is 'mesh':
