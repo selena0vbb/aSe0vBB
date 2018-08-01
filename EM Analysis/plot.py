@@ -209,7 +209,7 @@ def plotEField(Efield):
 	return None
 
 
-def interpEfield2D(x, y, E, method='linear'):
+def interpEField2D(x, y, E, method='linear'):
 	"""
 	Wrapper function for interpolating points of the Efield over the Comsol grid
 	
@@ -221,21 +221,19 @@ def interpEfield2D(x, y, E, method='linear'):
 		EInterp - interpolated E field. Nx2 numpy array where N is the number of xy coordinate pairs
 	"""
 
-	EInterp = []
-
+	
 	# Create interpolating functions for the E fields
 	ExInter = scp.interp2d(E[0], E[1], np.reshape(E[2],(E[1].size, E[0].size)), kind=method) 
 	EyInter = scp.interp2d(E[0], E[1], np.reshape(E[3],(E[1].size, E[0].size)), kind=method)
 
-	try:
-		for xi, yi in zip(x,y):
-			EInterp.append([ExInter(xi, yi), EyInter(xi, yi)])
-	except TypeError:
-		EInterp.append([ExInter(x, y), EyInter(x, y)])
+	# Create output array of zeros
+	EInterp = np.zeros((x.size, 2))
 
-	except:
-		print("Invalid Inputs")
-		return None
+	for i in range(x.size):
+		EInterp[i, 0] = ExInter(x[i], y[i])[0]
+		EInterp[i, 1] = EyInter(x[i], y[i])[0]
+
+	return EInterp
 
 def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear'):
 
