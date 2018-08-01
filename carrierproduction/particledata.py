@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 import numpy as np
 import sys
+import seleniumconfig as sc
 
 # add the EM plot module to the path and import it
 sys.path.append(r"..\EM Analysis")
@@ -168,7 +169,7 @@ class gEvent(object):
 		return val, [binx, biny], ax, fig 
 
 
-	def createCarriers(self, modelOptions=None):
+	def createCarriers(self, **kwargs):
 		""" 
 		Function that creates carriers from the energy distribution of the incoming gamma rays
 		"""
@@ -185,7 +186,10 @@ class gEvent(object):
 
 		# histogrammed data are in a (nbinx x nbiny) array. Simply divide by Wehp to get the energy as a distribution of position
 		nehp = np.round(val/Wehp)
-		nehpFluctuation = np.random.poisson(nehp)
+		if kwargs['CARRIER_GENERATION_POISSON']:
+			nehpFluctuation = np.random.poisson(nehp) - nehp
+		else:
+			nehpFluctuation = np.zeros(nehp.shape)
 
 		# Add noise to number of electron hole pair
 		return nehp, nehpFluctuation, binxCenter, binyCenter
@@ -238,20 +242,40 @@ class gEventCollection(object):
 
 		return foundEvent
 
-def computeChargeSignal(event, emFilename):
+def computeChargeSignal(event, emFilename, **kwargs):
 	"""
 	Uses the number of electron hole pairs spatial distribution from the event and the electrostatic simulation from COMSOL to determine the induced charge signal on the detector plates
 	"""
 
 	# Gets the carrier information
-	nehp, nehpf, binx, biny = event.createCarriers()
+	nehp, nehpNoise, binx, biny = event.createCarriers(**kwargs)
+	nehpf = nehp + nehpNoise 	# number of electron hole pairs w/ fluctuations is the average plus the noise
+								# noise determined by the specific model
 
 	# Gets the EM information
 	_, x, y, data = readComsolFileGrid(emFilename)
-	Ex = data[:, 1] / 1e3 # Convert to V/mm
-	Ey = data[:, 2] / 1e3 # Convert to V/mm
-	Etot = [x*1e3, y*1e3, Ex, Ey] # Construct the E field. Put lengths in mm to match Comsol
-	wPhi = [x*1e3, y*1e3, data[:, 3]]
+	convFactor = 1.e3 # for converting m to mm
+	x *= convFactor
+	y *= convFactor # convert m to mm
+
+
+	if kwargs['CHARGE_DIFFERENCE']:
+		phiAll, ExAll, EyAll = data[:,0:np.amin(data.shape):3], data[:,1:np.amin(data.shape):3], data[:,2:np.amin(data.shape):3] 
+		wPhiA = [x, y, phiAll[:,-2]]
+		wPhiB = [x, y, phiAll[:,-1]]
+		Ex, Ey = ExAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor, EyAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor # in V/mm
+	else:
+		phiAll, ExAll, EyAll = data[:,0:np.amin(data.shape):3], data[:,1:np.amin(data.shape):3], data[:,2:np.amin(data.shape):3]
+		wPhi = [x, y, phiAll[:,-1]]
+		Ex, Ey = ExAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor, EyAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor # in V/mm	
+
+	# Set up the boundaries of the em simulation
+	if kwargs['USE_BOUNDARY_LIMITS']:
+		limits = [kwargs['X_MIN'], kwargs['X_MAX'], kwargs['Y_MIN'], kwargs['Y_MAX']]
+	else:
+		limits=[]
+
+	Etot = [x, y, Ex, Ey] # Construct the E field. Put lengths in mm to match Comsol
 	dt = 0.01 # in us. so 10 ns
 	muHole, muElectron = 19e-6, 1e-6 # mm^2/(V*us)
 	maxtime = 0
@@ -267,17 +291,23 @@ def computeChargeSignal(event, emFilename):
 				qHoles = 1.6e-19*nehpf[i,j]
 				qElectrons = -qHoles
 
-				pathHoles = findMotion((binx[i], biny[j]), Etot, muHole, dt, q=qHoles)
-				pathElectrons = findMotion((binx[i], biny[j]), Etot, muElectron, dt, q=qElectrons)
+				pathHoles = findMotion((binx[i], biny[j]), Etot, muHole, dt, q=qHoles, limits=limits)
+				pathElectrons = findMotion((binx[i], biny[j]), Etot, muElectron, dt, q=qElectrons, limits=limits)
 
 				# Keep the longest time for reference in 
 				if np.max([pathHoles[-1,2], pathElectrons[-1,2]]) > maxtime:
 					maxtime = np.max([pathHoles[-1,2], pathElectrons[-1,2]])
 
-				indChargeHoles = inducedChargeSingle(wPhi, pathHoles, q=qHoles)
-				indChargeElectrons = inducedChargeSingle(wPhi, pathElectrons, q=qElectrons)
-				allInduced.append(indChargeHoles)
-				allInduced.append(indChargeElectrons)
+				if kwargs['CHARGE_DIFFERENCE']:
+					_, _, indChargeHoles = inducedCharge(wPhiA, wPhiB, pathHoles, q=qHoles)
+					_, _, indChargeElectrons = inducedCharge(wPhiA, wPhiB, pathElectrons, q=qElectrons)
+					allInduced.append(indChargeHoles)
+					allInduced.append(indChargeElectrons)
+				else:
+					indChargeHoles = inducedChargeSingle(wPhi, pathHoles, q=qHoles)
+					indChargeElectrons = inducedChargeSingle(wPhi, pathElectrons, q=qElectrons)
+					allInduced.append(indChargeHoles)
+					allInduced.append(indChargeElectrons)
 
 	time = np.arange(0, maxtime + dt, dt)
 	qInduced = np.zeros(time.shape)
@@ -291,14 +321,13 @@ def computeChargeSignal(event, emFilename):
 	return time, qInduced
 
 
-
-
-	return poissonDistMatrix
 if __name__ == '__main__':
 	# used for debuggin information. If the particledata.py file is run this segment of the code will run
 	filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root" 
-
 	emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\real_electrode.txt"
+	configfilename = r"./config.txt"
+
+	settings = sc.readConfigFile(configfilename)
 
 	newCollection = gEventCollection(filename)
 	newCollection.printInfo()
@@ -307,7 +336,7 @@ if __name__ == '__main__':
 	cProc = event.GetHits()[1]['creatorProcess'].split('\x00')[0]
 	# event.createCarriers()
 
-	t, q = computeChargeSignal(event, emfilename)
+	t, q = computeChargeSignal(event, emfilename, **settings)
 	fig, ax= plt.subplots()
 
 	ax.plot(t,-1*q, linewidth=3)
@@ -318,26 +347,25 @@ if __name__ == '__main__':
 	event.plotH2()
 
 
-	# iterate many times to watch fluctuation
-	fig1, ax1 = plt.subplots()
+	# # iterate many times to watch fluctuation
+	# fig1, ax1 = plt.subplots()
 
-	iterations = 50
-	for i in range(iterations):
-		print(i)
+	# iterations = 50
+	# for i in range(iterations):
+	# 	print(i)
 
-		t, q = computeChargeSignal(event, emfilename)
-		ax1.plot(t,-1*q,color='grey', alpha=0.5)
-		if i == 0:
-			qtot = q
-		else:
-			qtot += q
+	# 	t, q = computeChargeSignal(event, emfilename)
+	# 	ax1.plot(t,-1*q,color='grey', alpha=0.5)
+	# 	if i == 0:
+	# 		qtot = q
+	# 	else:
+	# 		qtot += q
 
-	ax1.plot(t,-1*qtot/iterations, color='black', linewidth=3)
-	ax1.set_xlabel(r'Time ($\mu$s)', fontsize=14)
-	ax1.set_ylabel(r'Induced Charge (C)', fontsize=14)
-	ax1.set_title('Q(t) at a Unipolar electrode with Poisson Fluctuation of Carriers for event %i' % (event.GetEventID()) , fontsize=16)
+	# ax1.plot(t,-1*qtot/iterations, color='black', linewidth=3)
+	# ax1.set_xlabel(r'Time ($\mu$s)', fontsize=14)
+	# ax1.set_ylabel(r'Induced Charge (C)', fontsize=14)
+	# ax1.set_title('Q(t) at a Unipolar electrode with Poisson Fluctuation of Carriers for event %i' % (event.GetEventID()) , fontsize=16)
 
-	plt.show()
 
 
 
