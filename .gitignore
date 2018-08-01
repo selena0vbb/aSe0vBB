@@ -4,3 +4,6 @@ selenv/
 # particle simulation build files
 particle/selenium-build/
 
+# .pyc files
+*.pyc
+
