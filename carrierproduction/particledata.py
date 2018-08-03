@@ -4,16 +4,13 @@
 # Libraries to import
 import ROOT as rt
 import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
 import numpy as np
 import sys
 import seleniumconfig as sc
 
 # add the EM plot module to the path and import it
 sys.path.append(r"..\EM Analysis")
-from plot import *
-
-import timeit
+from plot import readComsolFileGrid, findMotion, inducedCharge, inducedChargeSingle
 
 
 class gEvent(object):
@@ -33,11 +30,11 @@ class gEvent(object):
 
 
 	# Define Setters
-	def SetEventID(eventID):
+	def SetEventID(self, eventID):
 		""" Sets the geant4 event ID """
 		self.gEventID = eventID
 
-	def SetHits(hits):
+	def SetHits(self, hits):
 		""" Sets the list of hits """
 		self.hits = hits
 
@@ -55,15 +52,15 @@ class gEvent(object):
 		try:
 			return self.hits[index]
 		except Exception as e:
-			raise e	
-		
+			raise e
+
 	# Member functions
 	def AddHit(self, hit):
 		""" Adds a hit to the collection of hits. Function checks to make sure all entries are present and data types are correct
 		Input:
 			hit - dictionairy containing hit data
 		"""
-		
+
 		# Check to make sure all types of data in hit are what is expected
 		try:
 			boolTypeCheck = []
@@ -102,12 +99,12 @@ class gEvent(object):
 			flattenedData['energy'].append(hit['energy'])
 			flattenedData['particle'].append(hit['particle'])
 			flattenedData['creatorProcess'].append(hit['creatorProcess'])
-		
-		return flattenedData 
+
+		return flattenedData
 
 
 	def plotH1(self, x="z", y="energy", nbins=200, figH=None):
-		""" 
+		"""
 		Plots histogram of two compatable variables. Default are energy vs z axis
 		Inputs:
 
@@ -135,7 +132,7 @@ class gEvent(object):
 		ax.set_ylabel(y + " (keV)", fontsize=14)
 		ax.set_title(y + " vs " + x + " for Event ID %i " % self.GetEventID(), fontsize=16)
 
-		return val, bins, ax, fig 
+		return val, bins, ax, fig
 
 
 	def plotH2(self, x="y", y="z", z="energy", nbins=[200, 200], figH=None, delete=False):
@@ -166,11 +163,11 @@ class gEvent(object):
 		if delete:
 			plt.close(fig)
 
-		return val, [binx, biny], ax, fig 
+		return val, [binx, biny], ax, fig
 
 
 	def createCarriers(self, **kwargs):
-		""" 
+		"""
 		Function that creates carriers from the energy distribution of the incoming gamma rays
 		"""
 		Wehp = 0.05 # keV. 50 eV per electron hole pair
@@ -197,14 +194,14 @@ class gEvent(object):
 class gEventCollection(object):
 	"""docstring for gEventCollection"""
 	def __init__(self, rootFilename):
-		
+
 		self.rootFilename = rootFilename
 		self.collection = []
 
 		# Read the data from the file
 		f = rt.TFile(rootFilename)
-		# Gets a tree with the name aSeData. Current name from Geant4 simulation. 
-		tree = f.Get("aSeData")		
+		# Gets a tree with the name aSeData. Current name from Geant4 simulation.
+		tree = f.Get("aSeData")
 		eventID = -1
 		hitsList = []
 
@@ -260,14 +257,14 @@ def computeChargeSignal(event, emFilename, **kwargs):
 
 
 	if kwargs['CHARGE_DIFFERENCE']:
-		phiAll, ExAll, EyAll = data[:,0:np.amin(data.shape):3], data[:,1:np.amin(data.shape):3], data[:,2:np.amin(data.shape):3] 
+		phiAll, ExAll, EyAll = data[:,0:np.amin(data.shape):3], data[:,1:np.amin(data.shape):3], data[:,2:np.amin(data.shape):3]
 		wPhiA = [x, y, phiAll[:,-2]]
 		wPhiB = [x, y, phiAll[:,-1]]
 		Ex, Ey = ExAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor, EyAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor # in V/mm
 	else:
 		phiAll, ExAll, EyAll = data[:,0:np.amin(data.shape):3], data[:,1:np.amin(data.shape):3], data[:,2:np.amin(data.shape):3]
 		wPhi = [x, y, phiAll[:,-1]]
-		Ex, Ey = ExAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor, EyAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor # in V/mm	
+		Ex, Ey = ExAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor, EyAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor # in V/mm
 
 	# Set up the boundaries of the em simulation
 	if kwargs['USE_BOUNDARY_LIMITS']:
@@ -279,7 +276,7 @@ def computeChargeSignal(event, emFilename, **kwargs):
 	dt = 0.01 # in us. so 10 ns
 	muHole, muElectron = 19e-6, 1e-6 # mm^2/(V*us)
 	maxtime = 0
-	allInduced = [] 
+	allInduced = []
 
 	# iterate over all the grid points of electron hole pairs
 	for i in range(binx.shape[0]):
@@ -294,7 +291,7 @@ def computeChargeSignal(event, emFilename, **kwargs):
 				pathHoles = findMotion((binx[i], biny[j]), Etot, muHole, dt, q=qHoles, limits=limits)
 				pathElectrons = findMotion((binx[i], biny[j]), Etot, muElectron, dt, q=qElectrons, limits=limits)
 
-				# Keep the longest time for reference in 
+				# Keep the longest time for reference in
 				if np.max([pathHoles[-1,2], pathElectrons[-1,2]]) > maxtime:
 					maxtime = np.max([pathHoles[-1,2], pathElectrons[-1,2]])
 
@@ -316,14 +313,14 @@ def computeChargeSignal(event, emFilename, **kwargs):
 	for charge in allInduced:
 		qInduced[:len(charge)] += charge
 		# fill the rest of the time values with the last value so that the charge doesn't "disapear"
-		qInduced[len(charge):] += charge[-1] 
+		qInduced[len(charge):] += charge[-1]
 
 	return time, qInduced
 
 
 if __name__ == '__main__':
 	# used for debuggin information. If the particledata.py file is run this segment of the code will run
-	filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root" 
+	filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"
 	emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\real_electrode.txt"
 	configfilename = r"./config.txt"
 
