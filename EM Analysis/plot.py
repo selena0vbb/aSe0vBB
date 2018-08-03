@@ -246,7 +246,7 @@ def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear'):
 		wP = wPInter(path[i,0], path[i,1])
 		qi.append(-q*wP[0])
 
-	return qi 
+	return np.array(qi) 
 
 def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear'):
 	"""
@@ -276,8 +276,8 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear'):
 		Vb = VbInter(path[i,0], path[i,1])
 		# print(Va, path[i,0], path[i,1])
 		# Find the q induced via the Shokley-Ramo Theorem
-		qA.append(-q*Va)
-		qB.append(-q*Vb)
+		qA.append(-q*Va[0])
+		qB.append(-q*Vb[0])
 
 	qA, qB = np.array(qA), np.array(qB)
 	
