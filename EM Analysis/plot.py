@@ -13,7 +13,7 @@ def readComsolFile(filename):
 		filename - path to Comsol data file
 	Outputs:
 		header - list of all the Comsol header information such as the model used, dimension, units, functions exported, etc.
-		data - an NxM numpy array of the data contained in the Comsol output file. N is the number of points in the model and M is 
+		data - an NxM numpy array of the data contained in the Comsol output file. N is the number of points in the model and M is
 		the number of dimensions + the number of functions
 	"""
 	header, data = ([],[],)
@@ -22,14 +22,14 @@ def readComsolFile(filename):
 
 		# Seperate into header and data based of leading % sign. Cleanup of uncessesary symbols
 		if lines[0] == '%':
-			header.append(re.sub('[\n%]','',lines.replace(' ', '')))	
+			header.append(re.sub('[\n%]','',lines.replace(' ', '')))
 		else:
 			# Split the line into individual values and convert to floats
-			splitString = re.sub('[\n]','',lines).split() 
+			splitString = re.sub('[\n]','',lines).split()
 			data.append([float(i)for i in splitString]) # Rounds the input data to avoid some of Comsol variations
-		
+
 	file.close()
-	
+
 	return header, np.array(data)
 
 def readComsolFileGrid(filename):
@@ -51,23 +51,23 @@ def readComsolFileGrid(filename):
 
 		# Seperate into header and data based of leading % sign. Cleanup of uncessesary symbols
 		if lines[0] == '%':
-			header.append(re.sub('[\n%]','',lines.replace(' ', '')))	
+			header.append(re.sub('[\n%]','',lines.replace(' ', '')))
 		else:
 			# Split the line into individual values and convert to floats
-			splitString = re.sub('[\n]','',lines).split() 
+			splitString = re.sub('[\n]','',lines).split()
 			data.append([float(i)for i in splitString]) # Rounds the input data to avoid some of Comsol variations
 	file.close()
 	data = np.array(data)
-	
+
 	func = data[:,np.arange(2,len(splitString))] # Seperates imported data into position and function
 	x, y = np.unique(data[:,0]), np.unique(data[:,1])
-	
+
 	return header, x, y, func
 
 def takeSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12):
 	"""
 	Performs the same action as Plot Slice except returns the data instead of the figure
-	
+
 	"""
 
 	# Find all values of the sliceVal within the sliceAxis. Use the indices that satisfy this condition for the rows
@@ -143,7 +143,7 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 	Outputs
 		xt - the position of the function as a function of time. Nx3 matrix where N is the number of time steps and columns are x,y,t
 	"""
-	
+
 	# Defining coordinates and finding the max and min potentials values
 	t = 0
 	x = xi[0]
@@ -155,10 +155,10 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 		xmin, xmax = limits[0], limits[1]
 		ymin, ymax = limits[2], limits[3]
 
-	xt = [] 
-	
+	xt = []
+
 	# Create interpolating functions for the E fields
-	ExInter = scp.interp2d(E[0], E[1], np.reshape(E[2],(E[1].size, E[0].size)), kind=method) 
+	ExInter = scp.interp2d(E[0], E[1], np.reshape(E[2],(E[1].size, E[0].size)), kind=method)
 	EyInter = scp.interp2d(E[0], E[1], np.reshape(E[3],(E[1].size, E[0].size)), kind=method)
 
 	# While the charge carrier is in the selenium, keep finding the position
@@ -168,8 +168,8 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 		# Interpolate for values of Ex and Ey at the specific position
 		Ex = ExInter(x, y)
 		Ey = EyInter(x, y)
-	
-		# Solve equation of motion 
+
+		# Solve equation of motion
 		xNext = x + vDrift*Ex*np.sign(q)*dt
 		yNext = y + vDrift*Ey*np.sign(q)*dt
 
@@ -187,13 +187,13 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 		xt.append([x, ymax, t])
 	else:
 		xt.append([x, ymin, t])
-		
+
 	# convert to numpy array and return the data
 	return np.array(xt)
 
 def plotEField(Efield):
 	"""
-	Makes a vector field plot of the electric field using matplotlib 
+	Makes a vector field plot of the electric field using matplotlib
 
 	Inputs:
 		Efield - list in the form [x, y, Ex, Ey] just like the other functions.
@@ -212,7 +212,7 @@ def plotEField(Efield):
 def interpEField2D(x, y, E, method='linear'):
 	"""
 	Wrapper function for interpolating points of the Efield over the Comsol grid
-	
+
 	Inputs:
 		x - single value or list of x positions
 		y - single value or list of y positions
@@ -221,9 +221,9 @@ def interpEField2D(x, y, E, method='linear'):
 		EInterp - interpolated E field. Nx2 numpy array where N is the number of xy coordinate pairs
 	"""
 
-	
+
 	# Create interpolating functions for the E fields
-	ExInter = scp.interp2d(E[0], E[1], np.reshape(E[2],(E[1].size, E[0].size)), kind=method) 
+	ExInter = scp.interp2d(E[0], E[1], np.reshape(E[2],(E[1].size, E[0].size)), kind=method)
 	EyInter = scp.interp2d(E[0], E[1], np.reshape(E[3],(E[1].size, E[0].size)), kind=method)
 
 	# Create output array of zeros
@@ -239,14 +239,17 @@ def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear'):
 
 	qi = []
 
+	if type(q) != np.ndarray:
+		q = q*np.ones(path.shape[0])
+
 	wPInter = scp.interp2d(wPotential[0], wPotential[1], np.reshape(wPotential[2],(wPotential[1].size, wPotential[0].size)), kind=method)
-	
+
 	for i in range(path.shape[0]):
 
 		wP = wPInter(path[i,0], path[i,1])
-		qi.append(-q*wP[0])
+		qi.append(-q[i]*wP[0])
 
-	return np.array(qi) 
+	return np.array(qi)
 
 def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear'):
 	"""
@@ -263,12 +266,14 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear'):
 		qDiff - difference in the charge induced at electrode A and B
 	"""
 	qA = []
-	qB = []	
+	qB = []
 
 	# Definte interplation functions
 	VaInter = scp.interp2d(wPotentialA[0], wPotentialA[1], np.reshape(wPotentialA[2],(wPotentialA[1].size, wPotentialA[0].size)), kind=method)
 	VbInter = scp.interp2d(wPotentialB[0], wPotentialB[1], np.reshape(wPotentialB[2],(wPotentialA[1].size, wPotentialA[0].size)), kind=method)
 
+	if type(q) != np.ndarray:
+		q = q*np.ones(path.shape[0])
 
 	# Iterated over all the positions in the path
 	for i in range(path.shape[0]):
@@ -276,18 +281,18 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear'):
 		Vb = VbInter(path[i,0], path[i,1])
 		# print(Va, path[i,0], path[i,1])
 		# Find the q induced via the Shokley-Ramo Theorem
-		qA.append(-q*Va[0])
-		qB.append(-q*Vb[0])
+		qA.append(-q[i]*Va[0])
+		qB.append(-q[i]*Vb[0])
 
 	qA, qB = np.array(qA), np.array(qB)
-	
+
 	return qA, qB, qA-qB
 
 
 if __name__ == '__main__':
 	filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_weighted_potential.txt'
 	testHeader, testData = readComsolFile(filename)
-	
+
 	# # Creating contour and wireframe plot
 	# print('Test plot function\n')
 	# figC, axC = plotSlice(testData, 0, 1000, [6], gridSize=1000, type='contour')
@@ -303,41 +308,41 @@ if __name__ == '__main__':
 	# axM.set_zlabel(r"Weighted Potential (V)", fontsize=14)
 	# # plt.show()
 
-	initialPos = (1000, 100) # in um
-	vDriftHoles = 0.19e6 # cm^2/(V*s)
+	# initialPos = (1000, 100) # in um
+	# vDriftHoles = 0.19e6 # cm^2/(V*s)
 
-	eField = takeSlice(testData, 0, 1000, [4,5])/(1e6) # Converting V/m to V/um
-	# xt = findMotion(initialPos, eField.T,  vDriftHoles, 0.001)
+	# eField = takeSlice(testData, 0, 1000, [4,5])/(1e6) # Converting V/m to V/um
+	# # xt = findMotion(initialPos, eField.T,  vDriftHoles, 0.001)
 
-	# For finding the current induced (vs the signal generated), we can more easily just set y to a fixed value
-	# and vary z across the range of depth. If we choose y to be 
-	N = 500
-	z = np.linspace(21,219,N)
-	y = np.repeat(443,N)
-	pos = np.concatenate((y,z)).reshape(2,N).T
+	# # For finding the current induced (vs the signal generated), we can more easily just set y to a fixed value
+	# # and vary z across the range of depth. If we choose y to be
+	# N = 500
+	# z = np.linspace(21,219,N)
+	# y = np.repeat(443,N)
+	# pos = np.concatenate((y,z)).reshape(2,N).T
 
-	qA, qB, qDiff = inducedCharge(testData[:,(1,2,6)], testData[:,(1,2,9)], pos)
-	
-	
+	# qA, qB, qDiff = inducedCharge(testData[:,(1,2,6)], testData[:,(1,2,9)], pos)
 
-	fig = plt.figure()
-	ax = fig.add_subplot(111)
-	ax.plot(pos[:,1]-20,qA,'--', pos[:,1]-20,qB,'--', pos[:,1]-20, qDiff, linewidth=3)
-	ax.set_title(r'Induced Charge at a Coplanar Electrode. 100 $\mu m$ Spacing between fingers.', fontsize=16)
-	ax.set_xlabel(r'Depth ($\mu m$)', fontsize=14)
-	ax.set_ylabel(r'Induced Charge (C)', fontsize=14)
-	ax.legend(['qA','qB','qDiff'])
-	
-	
+
+
+	# fig = plt.figure()
+	# ax = fig.add_subplot(111)
+	# ax.plot(pos[:,1]-20,qA,'--', pos[:,1]-20,qB,'--', pos[:,1]-20, qDiff, linewidth=3)
+	# ax.set_title(r'Induced Charge at a Coplanar Electrode. 100 $\mu m$ Spacing between fingers.', fontsize=16)
+	# ax.set_xlabel(r'Depth ($\mu m$)', fontsize=14)
+	# ax.set_ylabel(r'Induced Charge (C)', fontsize=14)
+	# ax.legend(['qA','qB','qDiff'])
+
+
 	gridFile = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_export.txt'
 	header, x, y, V = readComsolFileGrid(gridFile)
-	print(V.shape)
-	xx, yy = np.meshgrid(x,y)
-	z = np.reshape(V, (x.size, y.size))
-	fig2 = plt.figure()
-	ax2 = fig2.add_subplot(111)
-	ax2.contourf(x, y, z)
-	plt.show()
+	# print(V.shape)
+	# xx, yy = np.meshgrid(x,y)
+	# z = np.reshape(V, (x.size, y.size))
+	# fig2 = plt.figure()
+	# ax2 = fig2.add_subplot(111)
+	# ax2.contourf(x, y, z)
+	# plt.show()
 
 
-	
+
