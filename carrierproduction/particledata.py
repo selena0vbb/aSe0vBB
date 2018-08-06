@@ -242,6 +242,15 @@ class gEventCollection(object):
 def computeChargeSignal(event, emFilename, **kwargs):
 	"""
 	Uses the number of electron hole pairs spatial distribution from the event and the electrostatic simulation from COMSOL to determine the induced charge signal on the detector plates
+
+	Inputs:
+		event - filled gEvent object
+		emFilename - string to the path containing the comsol electromagnetic data for the detector geometry
+		**kwargs - a variety of keyword arguments that govern simulation settings. See the config.txt for more information about what each one does
+	Outputs:
+		time - Nx1 numpy array where N is the number of time steps for the last charge to reach the electrodes
+		qInduced - Nx1 numpy array of the induced charge signal at the electrodes. For single electrode outputs just induced charge, for coplanar design (id 'CHARGE_DIFFERENCE' == True) outputs the difference in induced charge
+
 	"""
 
 	# Gets the carrier information
@@ -274,7 +283,8 @@ def computeChargeSignal(event, emFilename, **kwargs):
 
 	Etot = [x, y, Ex, Ey] # Construct the E field. Put lengths in mm to match Comsol
 	dt = 0.01 # in us. so 10 ns
-	muHole, muElectron = 19e-6, 1e-6 # mm^2/(V*us)
+	muHole, muElectron = kwargs['MU_HOLES'], kwargs['MU_ELECTRONS']# mm^2/(V*us)
+	tauHole, tauElectron = kwargs['TAU_HOLES'], kwargs['TAU_ELECTRONS']
 	maxtime = 0
 	allInduced = []
 
@@ -288,21 +298,44 @@ def computeChargeSignal(event, emFilename, **kwargs):
 				qHoles = 1.6e-19*nehpf[i,j]
 				qElectrons = -qHoles
 
+
+				# Find path of the electrons and holes at grid point i,j
 				pathHoles = findMotion((binx[i], biny[j]), Etot, muHole, dt, q=qHoles, limits=limits)
 				pathElectrons = findMotion((binx[i], biny[j]), Etot, muElectron, dt, q=qElectrons, limits=limits)
+
+				# Create array for number of charges particles at each point of the path
+				qHoleArray = qHoles*np.ones(pathHoles.shape[0])
+				qElectronArray = qElectrons*np.ones(pathElectrons.shape[0])
+
+				# If carrier lifetime noise is considered, do a geometric distribution to find the number of steps until a success. Iterate over that an substract
+				if kwargs['CARRIER_LIFETIME_GEOMETRIC']:
+					holeTrapTimeIndx = np.random.geometric(dt/tauHole, int(nehpf[i,j]))
+					electronTrapTimeIndx = np.random.geometric(dt/tauElectron, int(nehpf[i,j]))
+
+					# Eliminate values that are greater than the size of the length of the path
+					holeTrapTimeIndx = holeTrapTimeIndx[holeTrapTimeIndx < qHoleArray.size]
+					electronTrapTimeIndx = electronTrapTimeIndx[electronTrapTimeIndx < qElectronArray.size]
+
+					# iterate over all the trap location. Subtract a charge from that location in the charge array
+					for k in range(holeTrapTimeIndx.size):
+						qHoleArray[holeTrapTimeIndx[k]:] -= 1.6e-19
+					for k in range(electronTrapTimeIndx.size):
+						qElectronArray[electronTrapTimeIndx[k]:] += 1.6e-19
+
+					# iterate
 
 				# Keep the longest time for reference in
 				if np.max([pathHoles[-1,2], pathElectrons[-1,2]]) > maxtime:
 					maxtime = np.max([pathHoles[-1,2], pathElectrons[-1,2]])
 
 				if kwargs['CHARGE_DIFFERENCE']:
-					_, _, indChargeHoles = inducedCharge(wPhiA, wPhiB, pathHoles, q=qHoles)
-					_, _, indChargeElectrons = inducedCharge(wPhiA, wPhiB, pathElectrons, q=qElectrons)
+					_, _, indChargeHoles = inducedCharge(wPhiA, wPhiB, pathHoles, q=qHoleArray)
+					_, _, indChargeElectrons = inducedCharge(wPhiA, wPhiB, pathElectrons, q=qElectronArray)
 					allInduced.append(indChargeHoles)
 					allInduced.append(indChargeElectrons)
 				else:
-					indChargeHoles = inducedChargeSingle(wPhi, pathHoles, q=qHoles)
-					indChargeElectrons = inducedChargeSingle(wPhi, pathElectrons, q=qElectrons)
+					indChargeHoles = inducedChargeSingle(wPhi, pathHoles, q=qHoleArray)
+					indChargeElectrons = inducedChargeSingle(wPhi, pathElectrons, q=qElectronArray)
 					allInduced.append(indChargeHoles)
 					allInduced.append(indChargeElectrons)
 
@@ -316,6 +349,8 @@ def computeChargeSignal(event, emFilename, **kwargs):
 		qInduced[len(charge):] += charge[-1]
 
 	return time, qInduced
+
+
 
 
 if __name__ == '__main__':
@@ -362,9 +397,6 @@ if __name__ == '__main__':
 	# ax1.set_xlabel(r'Time ($\mu$s)', fontsize=14)
 	# ax1.set_ylabel(r'Induced Charge (C)', fontsize=14)
 	# ax1.set_title('Q(t) at a Unipolar electrode with Poisson Fluctuation of Carriers for event %i' % (event.GetEventID()) , fontsize=16)
-
-
-
 
 	plt.show()
 
