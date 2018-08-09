@@ -282,7 +282,7 @@ def computeChargeSignal(event, emFilename, **kwargs):
 		limits=[]
 
 	Etot = [x, y, Ex, Ey] # Construct the E field. Put lengths in mm to match Comsol
-	dt = 0.01 # in us. so 10 ns
+	dt = 0.02 # in us. so 10 ns
 	muHole, muElectron = kwargs['MU_HOLES'], kwargs['MU_ELECTRONS']# mm^2/(V*us)
 	tauHole, tauElectron = kwargs['TAU_HOLES'], kwargs['TAU_ELECTRONS']
 	maxtime = 0
@@ -329,8 +329,17 @@ def computeChargeSignal(event, emFilename, **kwargs):
 					maxtime = np.max([pathHoles[-1,2], pathElectrons[-1,2]])
 
 				if kwargs['CHARGE_DIFFERENCE']:
-					_, _, indChargeHoles = inducedCharge(wPhiA, wPhiB, pathHoles, q=qHoleArray)
-					_, _, indChargeElectrons = inducedCharge(wPhiA, wPhiB, pathElectrons, q=qElectronArray)
+
+					# Implement scaled weighted potential if necessary. Finds teh ration between phiA and phiB and then scales qB by the same amount
+					if kwargs['SCALE_WEIGHTED_PHI']:
+						scale = scaleWeightPhi(wPhiA[2], wPhiB[2], [x.size, y.size])
+						qAHoles, qBHoles, _ = inducedCharge(wPhiA, wPhiB, pathHoles, q=qHoleArray)
+						qAElectrons, qBElectrons, _ = inducedCharge(wPhiA, wPhiB, pathElectrons, q=qElectronArray)
+						indChargeHoles = qAHoles - scale * qBHoles
+						indChargeElectrons = qAElectrons - scale * qBElectrons
+					else:
+						_, _, indChargeHoles = inducedCharge(wPhiA, wPhiB, pathHoles, q=qHoleArray)
+						_, _, indChargeElectrons = inducedCharge(wPhiA, wPhiB, pathElectrons, q=qElectronArray)
 					allInduced.append(indChargeHoles)
 					allInduced.append(indChargeElectrons)
 				else:
@@ -350,8 +359,39 @@ def computeChargeSignal(event, emFilename, **kwargs):
 
 	return time, qInduced
 
+def computeDarkCurrentNoise(E, binx, biny, rho, dt):
+	"""
+	Calculates the dark current through a specific area of the detector (deliminated by the binx, biny range), converts that dark current to number of charge particles (probabalistically) and finds the induced charge from them at a time step
+	"""
+	return None
 
 
+def scaleWeightPhi(wPhiA, wPhiB, dimSize, depth=0.5, xrange=[0.35, 0.65]):
+	"""
+	Finds the scaling factor between weighted potential required to make the the different in induced charge 0 in the bulk
+
+	Inputs:
+		wPhiA - NxM np array of the weighted potential of electrode A (collection)
+		wPhiB - NxM array of weighted potential for B
+		dimSize = array of [nXelements, nYelements]
+		depth - what fraction of the weighted potential to look at. Must be small enough to avoid non-linearities of weighted potential near coplanar electrode
+		xrange - fraction of x values to take. Typically the edges of detector have distortions from linear potential, therefore we want to exclude
+	Outpus:
+		scaleFactor - float factor between the linear components of the weighted potential
+	"""
+
+	# Reshape weighted potential into nx x ny array
+	wPhiA = np.reshape(wPhiA, (dimSize[1], dimSize[0]))
+	wPhiB = np.reshape(wPhiB, (dimSize[1], dimSize[0]))
+	zdim = wPhiA.shape[0]
+	zindx = int(depth*zdim)
+	xmin, xmax = int(xrange[0]*wPhiA.shape[1]), int(xrange[1]*wPhiA.shape[1])
+
+	# Calculates the slope of the weighted potential in the linear region. Then finds the ratio at every point and averages them
+	phiDiffA = np.diff(wPhiA[zindx:, xmin:xmax], axis=0)
+	phiDiffB = np.diff(wPhiB[zindx:, xmin:xmax], axis=0)
+
+	return np.mean(phiDiffA/phiDiffB)
 
 if __name__ == '__main__':
 	# used for debuggin information. If the particledata.py file is run this segment of the code will run
