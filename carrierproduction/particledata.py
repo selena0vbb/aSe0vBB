@@ -137,12 +137,6 @@ class gEvent(object):
 
 	def plotH2(self, x="y", y="z", z="energy", nbins=[200, 200], figH=None, delete=False):
 
-		if not figH:
-			fig = plt.figure()
-			ax = fig.add_subplot(111)
-		else:
-			fig = figH[0]
-			ax = figH[1]
 
 		flatData = self.flattenEvent()
 		histX = flatData[x]
@@ -151,17 +145,28 @@ class gEvent(object):
 
 		# setting up the range
 		histRange = [self.geometry[x], self.geometry[y]]
-		val, binx, biny, cax = ax.hist2d(histX, histY, range=histRange, bins=nbins, weights=histZ)
-
-		# Set some default axis
-		ax.set_xlabel(x + " (mm)", fontsize=14)
-		ax.set_ylabel(y + " (mm)", fontsize=14)
-		ax.set_title(z + " vs " + x + " and " + y + " for Event ID %i" % self.GetEventID(), fontsize=16)
-
-		fig.colorbar(cax)
 
 		if delete:
-			plt.close(fig)
+			val, binx, biny = np.histogram2d(histX, histY, range=histRange, bins=nbins, weights=histZ)
+			fig, ax = None, None
+
+		else:
+			if not figH:
+				fig = plt.figure()
+				ax = fig.add_subplot(111)
+			else:
+				fig = figH[0]
+				ax = figH[1]
+
+			val, binx, biny, cax = ax.hist2d(histX, histY, range=histRange, bins=nbins, weights=histZ)
+
+			# Set some default axis
+			ax.set_xlabel(x + " (mm)", fontsize=14)
+			ax.set_ylabel(y + " (mm)", fontsize=14)
+			ax.set_title(z + " vs " + x + " and " + y + " for Event ID %i" % self.GetEventID(), fontsize=16)
+
+			fig.colorbar(cax)
+
 
 		return val, [binx, biny], ax, fig
 
@@ -193,7 +198,7 @@ class gEvent(object):
 
 class gEventCollection(object):
 	"""docstring for gEventCollection"""
-	def __init__(self, rootFilename):
+	def __init__(self, rootFilename, **kwargs):
 
 		self.rootFilename = rootFilename
 		self.collection = []
@@ -396,7 +401,7 @@ def scaleWeightPhi(wPhiA, wPhiB, dimSize, depth=0.5, xrange=[0.35, 0.65]):
 if __name__ == '__main__':
 	# used for debuggin information. If the particledata.py file is run this segment of the code will run
 	filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"
-	emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\real_electrode.txt"
+	emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt"
 	configfilename = r"./config.txt"
 
 	settings = sc.readConfigFile(configfilename)
@@ -404,7 +409,7 @@ if __name__ == '__main__':
 	newCollection = gEventCollection(filename)
 	newCollection.printInfo()
 
-	event = newCollection.collection[124]
+	event = newCollection.collection[126]
 	cProc = event.GetHits()[1]['creatorProcess'].split('\x00')[0]
 	# event.createCarriers()
 
@@ -420,23 +425,27 @@ if __name__ == '__main__':
 
 
 	# # iterate many times to watch fluctuation
-	# fig1, ax1 = plt.subplots()
+	fig1, ax1 = plt.subplots()
+	settings['CARRIER_GENERATION_POISSON'] = 1
+	settings['CHARGE_DIFFERENCE'] = 1
+	settings['VOLTAGE_SWEEP_INDEX'] = 4
+	settings['SCALE_WEIGHTED_PHI'] = 0
 
-	# iterations = 50
-	# for i in range(iterations):
-	# 	print(i)
+	iterations = 50
+	for i in range(iterations):
+		print(i)
 
-	# 	t, q = computeChargeSignal(event, emfilename)
-	# 	ax1.plot(t,-1*q,color='grey', alpha=0.5)
-	# 	if i == 0:
-	# 		qtot = q
-	# 	else:
-	# 		qtot += q
+		t, q = computeChargeSignal(event, emfilename, **settings)
+		ax1.plot(t,-1*q,color='grey', alpha=0.5)
+		if i == 0:
+			qtot = q
+		else:
+			qtot += q
 
-	# ax1.plot(t,-1*qtot/iterations, color='black', linewidth=3)
-	# ax1.set_xlabel(r'Time ($\mu$s)', fontsize=14)
-	# ax1.set_ylabel(r'Induced Charge (C)', fontsize=14)
-	# ax1.set_title('Q(t) at a Unipolar electrode with Poisson Fluctuation of Carriers for event %i' % (event.GetEventID()) , fontsize=16)
+	ax1.plot(t,-1*qtot/iterations, color='black', linewidth=3)
+	ax1.set_xlabel(r'Time ($\mu$s)', fontsize=14)
+	ax1.set_ylabel(r'Induced Charge (C)', fontsize=14)
+	ax1.set_title('Q(t) at a Unipolar electrode with Poisson Fluctuation of Carriers for event %i' % (event.GetEventID()) , fontsize=16)
 
 	plt.show()
 
