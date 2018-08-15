@@ -139,9 +139,98 @@ def noise_histogram():
     ax.legend()
     allfig.append(fig), allax.append(ax)
 
-    allfig.append(fig), allax.append(ax)
 
     return allfig, allax
+
+def noise_histogram_multiple_events():
+    filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"
+    emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt"
+    configfilename = r"./config.txt"
+
+    settings = sc.readConfigFile(configfilename)
+
+    # manipulate settings
+
+    eventCollection = pd.gEventCollection(filename)
+
+    wehp = 0.05 # keV
+    e = 1.6e-19
+    bmap = brewer2mpl.get_map('Dark2', 'Qualitative',5).mpl_colors
+
+
+    # data storage
+
+    allfig = []
+    allax = []
+
+    # info for iterating over 3 cases
+    emfilename = [r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt",r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt",r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\real_electrode.txt"]
+    plotTitle = ['Coplanar Detector No Scaling', 'Coplanar Detector Scaling', 'Planar Detector']
+    chargediff = [1, 1, 0]
+    voltageIndx = [4, 4, 0]
+    scaleWeight = [0, 1, 0]
+    neg = [-1, -1, 1]
+
+    # iterate over each event. Pick 122 keV and do simulation on them
+
+    for j in range(len(plotTitle)):
+        charge1usNoTrapping = []
+        charge20usNoTrapping = []
+        charge1usTrapping = []
+        charge20usTrapping = []
+        settings['CHARGE_DIFFERENCE'] = chargediff[j]
+        settings['VOLTAGE_SWEEP_INDEX'] = voltageIndx[j]
+        settings['SCALE_WEIGHTED_PHI'] = scaleWeight[j]
+
+        for i, event in enumerate(eventCollection.collection[0:3]):
+            print(i)
+            flatData = event.flattenEvent()
+            etot = sum(flatData['energy'])
+
+            # if energy is 122 kev, we do the analysis
+            if round(etot) == 122:
+                if abs(flatData['y'][0]) < 0.5:
+
+                    # No trapping
+                    settings['CARRIER_LIFETIME_GEOMETRIC'] = 0
+                    t, qNo = pd.computeChargeSignal(event, emfilename[j], **settings)
+                    indx1us = np.where(t > 1)[0][0]
+                    indx20us = t.size - 1
+                    charge1usNoTrapping.append(neg[j]*qNo[indx1us]/e * wehp)
+                    charge20usNoTrapping.append(neg[j]*qNo[indx20us]/e * wehp)
+
+                    # Trapping
+                    settings['CARRIER_LIFETIME_GEOMETRIC'] = 0
+                    t, qTrap = pd.computeChargeSignal(event, emfilename[j], **settings)
+                    indx1us = np.where(t >1)[0][0]
+                    indx20us = t.size - 1
+                    charge1usTrapping.append(neg[j]*qTrap[indx1us]/e * wehp)
+                    charge20usTrapping.append(neg[j]*qTrap[indx20us]/e * wehp)
+
+
+        # Induced charge, trapping
+        fig, ax = plt.subplots()
+        ax.hist(charge1usTrapping, bins=130, range=(0,130), histtype='step', linewidth=2, color=bmap[0], label='1 $\mu s$, mean=%.2f, rms=%.2f' %(np.mean(charge1usTrapping), np.std(charge1usTrapping)))
+        ax.hist(charge20usTrapping, bins=130, range=(0,130), histtype='step', linewidth=2, color=bmap[1], label='20 $\mu s$, mean=%.2f, rms=%.2f' %(np.mean(charge20usTrapping), np.std(charge20usTrapping)))
+        ax.set_title('Charge Induced at %s for Different 122 keV Events'%plotTitle[j], fontsize=16)
+        ax.set_xlabel('Energy (keV)', fontsize=14)
+        ax.legend(loc=2)
+        allfig.append(fig), allax.append(ax)
+
+        # Induced charge, no trapping
+        fig, ax = plt.subplots()
+        ax.hist(charge1usNoTrapping, bins=130, range=(0,130), histtype='step', linewidth=2, color=bmap[0], label='1 $\mu s$, mean=%.2f, rms=%.2f' %(np.mean(charge1usNoTrapping), np.std(charge1usNoTrapping)))
+        ax.hist(charge20usNoTrapping, bins=130, range=(0,130), histtype='step', linewidth=2, color=bmap[1], label='20 $\mu s$, mean=%.2f, rms=%.2f' %(np.mean(charge20usNoTrapping), np.std(charge20usNoTrapping)))
+        ax.set_title('Charge Induced at %s  for Different 122 keV Events'%plotTitle[j], fontsize=16)
+        ax.set_xlabel('Energy (keV)', fontsize=14)
+        ax.legend(loc=2)
+        allfig.append(fig), allax.append(ax)
+
+
+    return allfig, allax
+
+
+
 
 if __name__ == '__main__':
 
@@ -150,7 +239,8 @@ if __name__ == '__main__':
     # fig, ax = geometric_carrier_trapping([125, 126, 129, 143])
     # fig, ax = geometric_carrier_trapping([126])
 
-    noise_histogram()
+    # noise_histogram()
+    noise_histogram_multiple_events()
     plt.show()
 
     # filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt'
