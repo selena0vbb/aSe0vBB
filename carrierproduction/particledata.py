@@ -338,18 +338,18 @@ def computeChargeSignal(event, emFilename, **kwargs):
 					# Implement scaled weighted potential if necessary. Finds teh ration between phiA and phiB and then scales qB by the same amount
 					if kwargs['SCALE_WEIGHTED_PHI']:
 						scale = scaleWeightPhi(wPhiA[2], wPhiB[2], [x.size, y.size])
-						qAHoles, qBHoles, _ = inducedCharge(wPhiA, wPhiB, pathHoles, q=qHoleArray)
-						qAElectrons, qBElectrons, _ = inducedCharge(wPhiA, wPhiB, pathElectrons, q=qElectronArray)
+						qAHoles, qBHoles, _ = inducedCharge(wPhiA, wPhiB, pathHoles, q=qHoleArray, roundFinalVal=kwargs['ROUND_FINAL_WEIGHTED_PHI'])
+						qAElectrons, qBElectrons, _ = inducedCharge(wPhiA, wPhiB, pathElectrons, q=qElectronArray, roundFinalVal=kwargs['ROUND_FINAL_WEIGHTED_PHI'])
 						indChargeHoles = qAHoles - scale * qBHoles
 						indChargeElectrons = qAElectrons - scale * qBElectrons
 					else:
-						_, _, indChargeHoles = inducedCharge(wPhiA, wPhiB, pathHoles, q=qHoleArray)
-						_, _, indChargeElectrons = inducedCharge(wPhiA, wPhiB, pathElectrons, q=qElectronArray)
+						_, _, indChargeHoles = inducedCharge(wPhiA, wPhiB, pathHoles, q=qHoleArray, roundFinalVal=kwargs['ROUND_FINAL_WEIGHTED_PHI'])
+						_, _, indChargeElectrons = inducedCharge(wPhiA, wPhiB, pathElectrons, q=qElectronArray, roundFinalVal=kwargs['ROUND_FINAL_WEIGHTED_PHI'])
 					allInduced.append(indChargeHoles)
 					allInduced.append(indChargeElectrons)
 				else:
-					indChargeHoles = inducedChargeSingle(wPhi, pathHoles, q=qHoleArray)
-					indChargeElectrons = inducedChargeSingle(wPhi, pathElectrons, q=qElectronArray)
+					indChargeHoles = inducedChargeSingle(wPhi, pathHoles, q=qHoleArray, roundFinalVal=kwargs['ROUND_FINAL_WEIGHTED_PHI'])
+					indChargeElectrons = inducedChargeSingle(wPhi, pathElectrons, q=qElectronArray, roundFinalVal=kwargs['ROUND_FINAL_WEIGHTED_PHI'])
 					allInduced.append(indChargeHoles)
 					allInduced.append(indChargeElectrons)
 
