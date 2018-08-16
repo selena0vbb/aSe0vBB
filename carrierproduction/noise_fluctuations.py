@@ -142,6 +142,12 @@ def noise_histogram():
 
     return allfig, allax
 
+def charge_compute_wrapper(event, emfilename, e, wehp, neg, **settings):
+    t, qNo = pd.computeChargeSignal(event, emfilename, **settings)
+    indx1us = np.where(t > 1)[0][0]
+    indx20us = t.size - 1
+    return neg*qNo[indx1us]/e * wehp, neg*qNo[indx20us]/e * wehp
+
 def noise_histogram_multiple_events():
     filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"
     emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt"
@@ -152,6 +158,7 @@ def noise_histogram_multiple_events():
     # manipulate settings
 
     eventCollection = pd.gEventCollection(filename)
+    eventCollection.printInfo()
 
     wehp = 0.05 # keV
     e = 1.6e-19
@@ -164,7 +171,7 @@ def noise_histogram_multiple_events():
     allax = []
 
     # info for iterating over 3 cases
-    emfilename = [r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt",r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt",r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\real_electrode.txt"]
+    emfilename = [r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize_fine.txt",r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize_fine.txt",r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\real_electrode.txt"]
     plotTitle = ['Coplanar Detector No Scaling', 'Coplanar Detector Scaling', 'Planar Detector']
     chargediff = [1, 1, 0]
     voltageIndx = [4, 4, 0]
@@ -182,7 +189,7 @@ def noise_histogram_multiple_events():
         settings['VOLTAGE_SWEEP_INDEX'] = voltageIndx[j]
         settings['SCALE_WEIGHTED_PHI'] = scaleWeight[j]
 
-        for i, event in enumerate(eventCollection.collection[0:3]):
+        for i, event in enumerate(eventCollection.collection[3:8]):
             print(i)
             flatData = event.flattenEvent()
             etot = sum(flatData['energy'])
@@ -193,29 +200,30 @@ def noise_histogram_multiple_events():
 
                     # No trapping
                     settings['CARRIER_LIFETIME_GEOMETRIC'] = 0
-                    t, qNo = pd.computeChargeSignal(event, emfilename[j], **settings)
-                    indx1us = np.where(t > 1)[0][0]
-                    indx20us = t.size - 1
-                    charge1usNoTrapping.append(neg[j]*qNo[indx1us]/e * wehp)
-                    charge20usNoTrapping.append(neg[j]*qNo[indx20us]/e * wehp)
+                    # t, qNo = pd.computeChargeSignal(event, emfilename[j], **settings)
+                    # indx1us = np.where(t > 1)[0][0]
+                    # indx20us = t.size - 1
+                    q1, q20 = charge_compute_wrapper(event, emfilename[j], e, wehp, neg[j], **settings)
+                    charge1usNoTrapping.append(q1)
+                    charge20usNoTrapping.append(q20)
 
                     # Trapping
-                    settings['CARRIER_LIFETIME_GEOMETRIC'] = 0
-                    t, qTrap = pd.computeChargeSignal(event, emfilename[j], **settings)
-                    indx1us = np.where(t >1)[0][0]
-                    indx20us = t.size - 1
-                    charge1usTrapping.append(neg[j]*qTrap[indx1us]/e * wehp)
-                    charge20usTrapping.append(neg[j]*qTrap[indx20us]/e * wehp)
+                    # settings['CARRIER_LIFETIME_GEOMETRIC'] = 0
+                    # t, qTrap = pd.computeChargeSignal(event, emfilename[j], **settings)
+                    # indx1us = np.where(t >1)[0][0]
+                    # indx20us = t.size - 1
+                    # charge1usTrapping.append(neg[j]*qTrap[indx1us]/e * wehp)
+                    # charge20usTrapping.append(neg[j]*qTrap[indx20us]/e * wehp)
 
 
         # Induced charge, trapping
-        fig, ax = plt.subplots()
-        ax.hist(charge1usTrapping, bins=130, range=(0,130), histtype='step', linewidth=2, color=bmap[0], label='1 $\mu s$, mean=%.2f, rms=%.2f' %(np.mean(charge1usTrapping), np.std(charge1usTrapping)))
-        ax.hist(charge20usTrapping, bins=130, range=(0,130), histtype='step', linewidth=2, color=bmap[1], label='20 $\mu s$, mean=%.2f, rms=%.2f' %(np.mean(charge20usTrapping), np.std(charge20usTrapping)))
-        ax.set_title('Charge Induced at %s for Different 122 keV Events'%plotTitle[j], fontsize=16)
-        ax.set_xlabel('Energy (keV)', fontsize=14)
-        ax.legend(loc=2)
-        allfig.append(fig), allax.append(ax)
+        # fig, ax = plt.subplots()
+        # ax.hist(charge1usTrapping, bins=130, range=(0,130), histtype='step', linewidth=2, color=bmap[0], label='1 $\mu s$, mean=%.2f, rms=%.2f' %(np.mean(charge1usTrapping), np.std(charge1usTrapping)))
+        # ax.hist(charge20usTrapping, bins=130, range=(0,130), histtype='step', linewidth=2, color=bmap[1], label='20 $\mu s$, mean=%.2f, rms=%.2f' %(np.mean(charge20usTrapping), np.std(charge20usTrapping)))
+        # ax.set_title('Charge Induced at %s for Different 122 keV Events'%plotTitle[j], fontsize=16)
+        # ax.set_xlabel('Energy (keV)', fontsize=14)
+        # ax.legend(loc=2)
+        # allfig.append(fig), allax.append(ax)
 
         # Induced charge, no trapping
         fig, ax = plt.subplots()
