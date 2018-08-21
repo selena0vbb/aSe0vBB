@@ -244,132 +244,250 @@ class gEventCollection(object):
 
 		return foundEvent
 
-def computeChargeSignal(event, emFilename, **kwargs):
-	"""
-	Uses the number of electron hole pairs spatial distribution from the event and the electrostatic simulation from COMSOL to determine the induced charge signal on the detector plates
+class CarrierSimulation(object):
+	"""Wrapper class for all the functions and data surrounding the charge carrier simulation. All info is housed in one class for efficiency purposes"""
+	def __init__(self, emfilename=None, eventCollection=None, configfile=None):
+		"""
+		Initialize the class
+		"""
+		self.emfilname = emfilename
+		self.configfile = configfile
 
-	Inputs:
-		event - filled gEvent object
-		emFilename - string to the path containing the comsol electromagnetic data for the detector geometry
-		**kwargs - a variety of keyword arguments that govern simulation settings. See the config.txt for more information about what each one does
-	Outputs:
-		time - Nx1 numpy array where N is the number of time steps for the last charge to reach the electrodes
-		qInduced - Nx1 numpy array of the induced charge signal at the electrodes. For single electrode outputs just induced charge, for coplanar design (id 'CHARGE_DIFFERENCE' == True) outputs the difference in induced charge
+		print('Read Geant4 Simulation Data')
+		if type(eventCollection) is str:
+			self.eventCollection = gEventCollection(eventCollection)
+		else:
+			self.eventCollection = eventCollection
 
-	"""
+		# Read the emfile and store data in the class
+		print('Read Comsol EM Data')
+		if emfilename:
+			_, self.x, self.y, self.data = readComsolFileGrid(emfilename)
+		else:
+			self.x = self.y = self.data = []
 
-	# Gets the carrier information
-	nehp, nehpNoise, binx, biny = event.createCarriers(**kwargs)
-	nehpf = nehp + nehpNoise 	# number of electron hole pairs w/ fluctuations is the average plus the noise
-								# noise determined by the specific model
+		# Read and store settings
+		print('Read config')
+		if configfile:
+			self.settings = sc.readConfigFile(configfile)
+		else:
+			self.settings = None
 
-	# Gets the EM information
-	_, x, y, data = readComsolFileGrid(emFilename)
-	convFactor = 1.e3 # for converting m to mm
-	x *= convFactor
-	y *= convFactor # convert m to mm
+		# Perform initialization actions based on the settings
+		print('Apply Relevant')
+		if settings['SCALE_WEIGHTED_PHI']:
+			self.computeScaleFactor()
+		else:
+			self.scale = 1
 
+	def newEmFile(self, emfilename):
+		"""
+		Replace the em data with what is in the new file
+		Inputs:
+			emfilename - string of the path to the comsol simulation file
+		"""
+		_, self.x, self.y, self.data = readComsolFileGrid(emfilename)
 
-	if kwargs['CHARGE_DIFFERENCE']:
-		phiAll, ExAll, EyAll = data[:,0:np.amin(data.shape):3], data[:,1:np.amin(data.shape):3], data[:,2:np.amin(data.shape):3]
-		wPhiA = [x, y, phiAll[:,-2]]
-		wPhiB = [x, y, phiAll[:,-1]]
-		Ex, Ey = ExAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor, EyAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor # in V/mm
-	else:
-		phiAll, ExAll, EyAll = data[:,0:np.amin(data.shape):3], data[:,1:np.amin(data.shape):3], data[:,2:np.amin(data.shape):3]
-		wPhi = [x, y, phiAll[:,-1]]
-		Ex, Ey = ExAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor, EyAll[:,kwargs['VOLTAGE_SWEEP_INDEX']]/convFactor # in V/mm
+	def newEventCollection(self, eventCollection):
+		"""
+		Replaces the current event collection with the new eventCollection
+		Inputs:
+			eventCollection - either a string to the file location or an gEventCollection ojbect
+		"""
+		if type(eventCollection) is str:
+			self.eventCollection = gEventCollection(eventCollection)
+		else:
+			self.eventCollection = eventCollection
 
-	# Set up the boundaries of the em simulation
-	if kwargs['USE_BOUNDARY_LIMITS']:
-		limits = [kwargs['X_MIN'], kwargs['X_MAX'], kwargs['Y_MIN'], kwargs['Y_MAX']]
-	else:
-		limits=[]
+	def newSettings(self, configfile):
 
-	Etot = [x, y, Ex, Ey] # Construct the E field. Put lengths in mm to match Comsol
-	dt = 0.02 # in us. so 10 ns
-	muHole, muElectron = kwargs['MU_HOLES'], kwargs['MU_ELECTRONS']# mm^2/(V*us)
-	tauHole, tauElectron = kwargs['TAU_HOLES'], kwargs['TAU_ELECTRONS']
-	maxtime = 0
-	allInduced = []
+		self.settings = sc.readConfigFile(configfile)
 
-	# iterate over all the grid points of electron hole pairs
-	for i in range(binx.shape[0]):
-		for j in range(biny.shape[0]):
-			if nehpf[i,j] == 0:
-				pass
-			else:
-				# Find trajectory of this group of particles
-				qHoles = 1.6e-19*nehpf[i,j]
-				qElectrons = -qHoles
+	def computeScaleFactor(self, depth=[0.5, 1], width=[0.35, 0.65]):
+		"""
+		Computes the scale factor between weighted potentials for tiered coplanar design. Save it as an attribute of the class so it only needs to be done once
+		"""
 
+		# Get dimensions and sets the limits that we want to take
+		xdim = self.x.size
+		ydim = self.y.size
+		xmin, xmax = int(xdim*width[0]), int(xdim*width[1])
+		ymin, ymax = int(ydim*depth[0]), int(ydim*depth[1])
 
-				# Find path of the electrons and holes at grid point i,j
-				pathHoles = findMotion((binx[i], biny[j]), Etot, muHole, dt, q=qHoles, limits=limits)
-				pathElectrons = findMotion((binx[i], biny[j]), Etot, muElectron, dt, q=qElectrons, limits=limits)
+		phi = self.data[:,0:np.amin(self.data.shape):3]
+		wPhiA = np.reshape(phi[:,-2], (ydim, xdim))
+		wPhiB = np.reshape(phi[:,-1], (ydim, xdim))
 
-				# Create array for number of charges particles at each point of the path
-				qHoleArray = qHoles*np.ones(pathHoles.shape[0])
-				qElectronArray = qElectrons*np.ones(pathElectrons.shape[0])
+		phiDiffA = np.diff(wPhiA[ymin:ymax-1, xmin:xmax-1], axis=0)
+		phiDiffB = np.diff(wPhiB[ymin:ymax-1, xmin:xmax-1], axis=0)
 
-				# If carrier lifetime noise is considered, do a geometric distribution to find the number of steps until a success. Iterate over that an substract
-				if kwargs['CARRIER_LIFETIME_GEOMETRIC']:
-					holeTrapTimeIndx = np.random.geometric(dt/tauHole, int(nehpf[i,j]))
-					electronTrapTimeIndx = np.random.geometric(dt/tauElectron, int(nehpf[i,j]))
+		self.scale = np.mean(phiDiffA/phiDiffB)
 
-					# Eliminate values that are greater than the size of the length of the path
-					holeTrapTimeIndx = holeTrapTimeIndx[holeTrapTimeIndx < qHoleArray.size]
-					electronTrapTimeIndx = electronTrapTimeIndx[electronTrapTimeIndx < qElectronArray.size]
+		return self.scale
 
-					# iterate over all the trap location. Subtract a charge from that location in the charge array
-					for k in range(holeTrapTimeIndx.size):
-						qHoleArray[holeTrapTimeIndx[k]:] -= 1.6e-19
-					for k in range(electronTrapTimeIndx.size):
-						qElectronArray[electronTrapTimeIndx[k]:] += 1.6e-19
+	def createFields(self):
+		"""
+		Takes the raw comsol data and parses it into the form used by findmotion and inducedCharge
+		"""
 
-					# iterate
+		# Gets the EM information
+		x, y, data = self.x, self.y, self.data
+		convFactor = self.settings['UNIT_CONVERSION_FACTOR']
+		x *= convFactor
+		y *= convFactor # convert m to mm
 
-				# Keep the longest time for reference in
-				if np.max([pathHoles[-1,2], pathElectrons[-1,2]]) > maxtime:
-					maxtime = np.max([pathHoles[-1,2], pathElectrons[-1,2]])
+		# Parses the data depending on the mode
+		if self.settings['CHARGE_DIFFERENCE']:
+			phiAll, ExAll, EyAll = data[:,0:np.amin(data.shape):3], data[:,1:np.amin(data.shape):3], data[:,2:np.amin(data.shape):3]
+			wPhiA = [x, y, phiAll[:,-2]]
+			wPhiB = [x, y, phiAll[:,-1]]
+			wPhi = [wPhiA, wPhiB]
+			Ex, Ey = ExAll[:,self.settings['VOLTAGE_SWEEP_INDEX']]/convFactor, EyAll[:,self.settings['VOLTAGE_SWEEP_INDEX']]/convFactor # in V/mm
+		else:
+			phiAll, ExAll, EyAll = data[:,0:np.amin(data.shape):3], data[:,1:np.amin(data.shape):3], data[:,2:np.amin(data.shape):3]
+			wPhi = [x, y, phiAll[:,-1]]
+			Ex, Ey = ExAll[:,self.settings['VOLTAGE_SWEEP_INDEX']]/convFactor, EyAll[:,self.settings['VOLTAGE_SWEEP_INDEX']]/convFactor # in V/mm
 
-				if kwargs['CHARGE_DIFFERENCE']:
+		Etot = [x, y, Ex, Ey] # Construct the E field. Put lengths in mm to match Comsol
 
-					# Implement scaled weighted potential if necessary. Finds teh ration between phiA and phiB and then scales qB by the same amount
-					if kwargs['SCALE_WEIGHTED_PHI']:
-						scale = scaleWeightPhi(wPhiA[2], wPhiB[2], [x.size, y.size])
-						qAHoles, qBHoles, _ = inducedCharge(wPhiA, wPhiB, pathHoles, q=qHoleArray)
-						qAElectrons, qBElectrons, _ = inducedCharge(wPhiA, wPhiB, pathElectrons, q=qElectronArray)
-						indChargeHoles = qAHoles - scale * qBHoles
-						indChargeElectrons = qAElectrons - scale * qBElectrons
-					else:
-						_, _, indChargeHoles = inducedCharge(wPhiA, wPhiB, pathHoles, q=qHoleArray)
-						_, _, indChargeElectrons = inducedCharge(wPhiA, wPhiB, pathElectrons, q=qElectronArray)
-					allInduced.append(indChargeHoles)
-					allInduced.append(indChargeElectrons)
+		return Etot, wPhi
+
+	def chargeArray(self, nehp, nHoleSteps, nElectronSteps):
+		"""
+		Generates the charge arrays used in the induced charge calculations
+		"""
+
+		# Get data from the settings
+		tauHole = self.settings['TAU_HOLES']
+		tauElectron = self.settings['TAU_ELECTRONS']
+		dtHole = self.settings['DT_HOLES']
+		dtElectron = self.settings['DT_ELECTRONS']
+		elementaryCharge = self.settings['ELEMENTARY_CHARGE']
+
+		qHole = elementaryCharge*nehp
+		qElectron = -qHole
+
+		# Create array for number of charges particles at each point of the path
+		qHoleArray = qHole*np.ones(nHoleSteps)
+		qElectronArray = qElectron*np.ones(nElectronSteps)
+
+		# If carrier lifetime noise is considered, do a geometric distribution to find the number of steps until a success. Iterate over that an substract
+		if self.settings['CARRIER_LIFETIME_GEOMETRIC']:
+			holeTrapTimeIndx = np.random.geometric(dtHole/tauHole, nehp)
+			electronTrapTimeIndx = np.random.geometric(dtElectron/tauElectron, nehp)
+
+			# Eliminate values that are greater than the size of the length of the path
+			holeTrapTimeIndx = holeTrapTimeIndx[holeTrapTimeIndx < qHoleArray.size]
+			electronTrapTimeIndx = electronTrapTimeIndx[electronTrapTimeIndx < qElectronArray.size]
+
+			# iterate over all the trap location. Subtract a charge from that location in the charge array
+			for k in range(holeTrapTimeIndx.size):
+				qHoleArray[holeTrapTimeIndx[k]:] -= elementaryCharge
+			for k in range(electronTrapTimeIndx.size):
+				qElectronArray[electronTrapTimeIndx[k]:] += elementaryCharge
+
+		return qHoleArray, qElectronArray
+
+	def computeChargeSignal(self, eventIdx):
+		"""
+		Uses the number of electron hole pairs spatial distribution from the event and the electrostatic simulation from COMSOL to determine the induced charge signal on the detector plates
+
+		Inputs:
+			event - filled gEvent object
+			emFilename - string to the path containing the comsol electromagnetic data for the detector geometry
+			**kwargs - a variety of keyword arguments that govern simulation settings. See the config.txt for more information about what each one does
+		Outputs:
+			time - Nx1 numpy array where N is the number of time steps for the last charge to reach the electrodes
+			qInduced - Nx1 numpy array of the induced charge signal at the electrodes. For single electrode outputs just induced charge, for coplanar design (id 'CHARGE_DIFFERENCE' == True) outputs the difference in induced charge
+
+		"""
+
+		# Gets the carrier information
+		event = self.eventCollection.collection[eventIdx]
+		nehp, nehpNoise, binx, biny = event.createCarriers(**self.settings)
+		nehpf = nehp + nehpNoise	# number of electron hole pairs w/ fluctuations is the average plus the noise noise determined by the specific model
+		nehpf = nehpf.astype(int)
+
+		Etot, wPhi = self.createFields()
+
+		# Set up the boundaries of the em simulation
+		if self.settings['USE_BOUNDARY_LIMITS']:
+			limits = [self.settings['X_MIN'], self.settings['X_MAX'], self.settings['Y_MIN'], self.settings['Y_MAX']]
+		else:
+			limits=[]
+
+		# Get parameters from the settings necessary for the simulations
+		dtHole = self.settings['DT_HOLES']
+		dtElectron = self.settings['DT_ELECTRONS']
+		muHole, muElectron = self.settings['MU_HOLES'], self.settings['MU_ELECTRONS']# mm^2/(V*us)
+		maxtime = 0
+		allInduced = []
+
+		# iterate over all the grid points of electron hole pairs
+		for i in range(binx.shape[0]):
+			for j in range(biny.shape[0]):
+				if nehpf[i,j] == 0:
+					pass
 				else:
-					indChargeHoles = inducedChargeSingle(wPhi, pathHoles, q=qHoleArray)
-					indChargeElectrons = inducedChargeSingle(wPhi, pathElectrons, q=qElectronArray)
-					allInduced.append(indChargeHoles)
-					allInduced.append(indChargeElectrons)
+					# Find trajectory of this group of particles
+					# Assign the sign of the charge of holes and electrons
+					qHoles = 1
+					qElectrons = -qHoles
 
-	time = np.arange(0, maxtime + dt, dt)
-	qInduced = np.zeros(time.shape)
+					# Find path of the electrons and holes at grid point i,j
+					pathHoles = findMotion((binx[i], biny[j]), Etot, muHole, dtHole, q=qHoles, limits=limits)
+					pathElectrons = findMotion((binx[i], biny[j]), Etot, muElectron, dtElectron, q=qElectrons, limits=limits)
 
-	# Iterate over the induced charge by each grid contribution and add them to the total charge induced on the electrode
-	for charge in allInduced:
-		qInduced[:len(charge)] += charge
-		# fill the rest of the time values with the last value so that the charge doesn't "disapear"
-		qInduced[len(charge):] += charge[-1]
+					qHoleArray, qElectronArray = self.chargeArray(nehpf[i,j], pathHoles.shape[0], pathElectrons.shape[0])
 
-	return time, qInduced
+					# Keep the longest time for reference in
+					if np.max([pathHoles[-1,2], pathElectrons[-1,2]]) > maxtime:
+						maxtime = np.max([pathHoles[-1,2], pathElectrons[-1,2]])
+
+					if self.settings['CHARGE_DIFFERENCE']:
+						# Compute difference in induced charge, qA-qB, for both electrons and holes. Incorporates scale factor (which is =1 for no scaling)
+						qAHoles, qBHoles, _ = inducedCharge(wPhi[0], wPhi[1], pathHoles, q=qHoleArray)
+						qAElectrons, qBElectrons, _ = inducedCharge(wPhi[0], wPhi[1], pathElectrons, q=qElectronArray)
+						indChargeHoles = qAHoles - self.scale * qBHoles
+						indChargeElectrons = qAElectrons - self.scale * qBElectrons
+
+						# append to  list of induced charge
+						allInduced.append(indChargeHoles)
+						allInduced.append(indChargeElectrons)
+
+					else:
+						# Compute induced charge on a single electrode
+						indChargeHoles = inducedChargeSingle(wPhi, pathHoles, q=qHoleArray)
+						indChargeElectrons = inducedChargeSingle(wPhi, pathElectrons, q=qElectronArray)
+						allInduced.append(indChargeHoles)
+						allInduced.append(indChargeElectrons)
+
+		timeHoles = np.arange(0, maxtime + dtHole, dtHole)
+		timeElectrons = np.arange(0, maxtime + dtElectron, dtElectron)
+		qIndHole = np.zeros(timeHoles.shape)
+		qIndElectron = np.zeros(timeElectrons.shape)
+
+		# Iterate over the induced charge by each grid contribution and add them to the total charge induced on the electrode
+		for indx, charge in enumerate(allInduced):
+			if indx % 2 == 0:
+				qIndHole[:len(charge)] += charge
+				# fill the rest of the time values with the last value so that the charge doesn't "disapear"
+				qIndHole[len(charge):] += charge[-1]
+			else:
+				qIndElectron[:len(charge)] += charge
+				qIndElectron[len(charge):] += charge[-1]
+
+		# Interpolate the Electron induced charge to match the holes so we can add them together
+
+		qInduced = qIndHole + np.interp(timeHoles, timeElectrons, qIndElectron)
+
+		return timeHoles, qInduced
 
 def computeDarkCurrentNoise(E, binx, biny, rho, dt):
 	"""
 	Calculates the dark current through a specific area of the detector (deliminated by the binx, biny range), converts that dark current to number of charge particles (probabalistically) and finds the induced charge from them at a time step
 	"""
 	return None
-
 
 def scaleWeightPhi(wPhiA, wPhiB, dimSize, depth=0.5, xrange=[0.35, 0.65]):
 	"""
@@ -406,47 +524,21 @@ if __name__ == '__main__':
 
 	settings = sc.readConfigFile(configfilename)
 
+	# Create new collection
 	newCollection = gEventCollection(filename)
 	newCollection.printInfo()
 
-	event = newCollection.collection[126]
-	cProc = event.GetHits()[1]['creatorProcess'].split('\x00')[0]
-	# event.createCarriers()
+	# Create simulation object
+	simObject = CarrierSimulation(emfilename=emfilename, eventCollection=newCollection, configfile=configfilename)
 
-	t, q = computeChargeSignal(event, emfilename, **settings)
-	fig, ax= plt.subplots()
+	t, q = simObject.computeChargeSignal(125)
 
-	ax.plot(t,-1*q, linewidth=3)
-	ax.set_xlabel(r'Time ($\mu$s)', fontsize=14)
-	ax.set_ylabel(r'Induced Charge (C)', fontsize=14)
-	ax.set_title('Q(t) at a Unipolar electrode for event %i. Initial electron creator process: %s' % (event.GetEventID(), cProc) , fontsize=14)
-	event.plotH1(x="z", y="energy", nbins=200)
-	event.plotH2()
-
-
-	# # iterate many times to watch fluctuation
-	fig1, ax1 = plt.subplots()
-	settings['CARRIER_GENERATION_POISSON'] = 1
-	settings['CHARGE_DIFFERENCE'] = 1
-	settings['VOLTAGE_SWEEP_INDEX'] = 4
-	settings['SCALE_WEIGHTED_PHI'] = 0
-
-	iterations = 50
-	for i in range(iterations):
-		print(i)
-
-		t, q = computeChargeSignal(event, emfilename, **settings)
-		ax1.plot(t,-1*q,color='grey', alpha=0.5)
-		if i == 0:
-			qtot = q
-		else:
-			qtot += q
-
-	ax1.plot(t,-1*qtot/iterations, color='black', linewidth=3)
-	ax1.set_xlabel(r'Time ($\mu$s)', fontsize=14)
-	ax1.set_ylabel(r'Induced Charge (C)', fontsize=14)
-	ax1.set_title('Q(t) at a Unipolar electrode with Poisson Fluctuation of Carriers for event %i' % (event.GetEventID()) , fontsize=16)
-
+	# Plot results
+	fig, ax = plt.subplots()
+	ax.plot(t, -q/1.6e-19*0.05, linewidth=3)
+	ax.set_xlabel('Time ($\mu s$', fontsize=14)
+	ax.set_ylabel('Charge (keV)', fontsize=14)
 	plt.show()
 
-	print('stopping')
+
+
