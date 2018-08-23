@@ -2,7 +2,7 @@ import particledata as pd
 import seleniumconfig as sc
 import matplotlib.pyplot as plt
 import brewer2mpl
-import plot
+# import plot
 import numpy as np
 
 def geometric_carrier_trapping(eventIDs):
