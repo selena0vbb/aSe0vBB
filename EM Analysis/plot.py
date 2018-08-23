@@ -1,8 +1,10 @@
 import numpy as np
-import matplotlib.pyplot as plt
+try:
+	import matplotlib.pyplot as plt
+except:
+	pass
 import scipy.interpolate as scp
 import re
-from mpl_toolkits.mplot3d import axes3d
 import brewer2mpl
 
 def readComsolFile(filename):

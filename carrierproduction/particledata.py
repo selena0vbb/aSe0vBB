@@ -3,13 +3,17 @@
 
 # Libraries to import
 import ROOT as rt
-import matplotlib.pyplot as plt
+try:
+	import matplotlib.pyplot as plt
+except:
+	pass
 import numpy as np
 import sys
 import seleniumconfig as sc
+from pathlib import Path
 
 # add the EM plot module to the path and import it
-sys.path.append(r"..\EM Analysis")
+sys.path.append(Path('../EM Analysis'))
 from plot import readComsolFileGrid, findMotion, inducedCharge, inducedChargeSingle
 
 
