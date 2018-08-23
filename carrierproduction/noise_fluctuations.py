@@ -144,7 +144,7 @@ def noise_histogram():
 
 def charge_compute_wrapper(event, emfilename, e, wehp, neg, **settings):
     t, qNo = pd.computeChargeSignal(event, emfilename, **settings)
-    indx1us = np.where(t > 1)[0][0]
+    indx1us = np.where(t > 1.5)[0][0]
     indx20us = t.size - 1
     return neg*qNo[indx1us]/e * wehp, neg*qNo[indx20us]/e * wehp
 
@@ -196,7 +196,7 @@ def noise_histogram_multiple_events():
 
             # if energy is 122 kev, we do the analysis
             if round(etot) == 122:
-                if abs(flatData['y'][0]) < 0.5 and zmin > -0.05:
+                if np.max(np.abs(flatData['y'])) < 0.5 and zmin > -0.05:
                     # No trapping
                     settings['CARRIER_LIFETIME_GEOMETRIC'] = 0
                     # t, qNo = pd.computeChargeSignal(event, emfilename[j], **settings)
@@ -228,7 +228,7 @@ def noise_histogram_multiple_events():
 
         # Induced charge, no trapping
         fig, ax = plt.subplots()
-        ax.hist(charge1usNoTrapping, bins=130, range=(0,130), histtype='step', linewidth=2, color=bmap[0], label='1 $\mu s$, mean=%.2f, rms=%.2f' %(np.mean(charge1usNoTrapping), np.std(charge1usNoTrapping)))
+        ax.hist(charge1usNoTrapping, bins=130, range=(0,130), histtype='step', linewidth=2, color=bmap[0], label='1.5 $\mu s$, mean=%.2f, rms=%.2f' %(np.mean(charge1usNoTrapping), np.std(charge1usNoTrapping)))
         ax.hist(charge20usNoTrapping, bins=130, range=(0,130), histtype='step', linewidth=2, color=bmap[1], label='20 $\mu s$, mean=%.2f, rms=%.2f' %(np.mean(charge20usNoTrapping), np.std(charge20usNoTrapping)))
         ax.set_title('Charge Induced at %s  for Different 122 keV Events'%plotTitle[j], fontsize=16)
         ax.set_xlabel('Energy (keV)', fontsize=14)
