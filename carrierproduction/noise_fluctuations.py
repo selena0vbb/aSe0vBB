@@ -46,7 +46,7 @@ def geometric_carrier_trapping(eventIDs):
     return fig, ax
 
 def noise_histogram():
-    filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"
+    filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTupleLarge.root"
     emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt"
     configfilename = r"./config.txt"
 
@@ -189,15 +189,14 @@ def noise_histogram_multiple_events():
         settings['VOLTAGE_SWEEP_INDEX'] = voltageIndx[j]
         settings['SCALE_WEIGHTED_PHI'] = scaleWeight[j]
 
-        for i, event in enumerate(eventCollection.collection[3:8]):
-            print(i)
+        for i, event in enumerate(eventCollection.collection):
             flatData = event.flattenEvent()
             etot = sum(flatData['energy'])
+            zmin = min(flatData['z'])
 
             # if energy is 122 kev, we do the analysis
             if round(etot) == 122:
-                if abs(flatData['y'][0]) < 0.5:
-
+                if abs(flatData['y'][0]) < 0.5 and zmin > -0.05:
                     # No trapping
                     settings['CARRIER_LIFETIME_GEOMETRIC'] = 0
                     # t, qNo = pd.computeChargeSignal(event, emfilename[j], **settings)
@@ -206,6 +205,8 @@ def noise_histogram_multiple_events():
                     q1, q20 = charge_compute_wrapper(event, emfilename[j], e, wehp, neg[j], **settings)
                     charge1usNoTrapping.append(q1)
                     charge20usNoTrapping.append(q20)
+                    print('1 us. Event ID %i: %f'%(event.GetEventID(), q1))
+                    print('20 us. Event ID %i: %f'%(event.GetEventID(), q20))
 
                     # Trapping
                     # settings['CARRIER_LIFETIME_GEOMETRIC'] = 0
