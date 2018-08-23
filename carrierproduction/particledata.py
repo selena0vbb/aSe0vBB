@@ -266,6 +266,8 @@ class CarrierSimulation(object):
 		else:
 			self.x = self.y = self.data = []
 
+
+
 		# Read and store settings
 		print('Read config')
 		if configfile:
@@ -274,12 +276,13 @@ class CarrierSimulation(object):
 			self.settings = None
 
 		# Perform initialization actions based on the settings
-		print('Apply Relevant')
+		print('Apply Relevant Settings')
 		if settings['SCALE_WEIGHTED_PHI']:
 			self.computeScaleFactor()
 		else:
 			self.scale = 1
 
+		self.createFields()
 	def newEmFile(self, emfilename):
 		"""
 		Replace the em data with what is in the new file
@@ -287,6 +290,7 @@ class CarrierSimulation(object):
 			emfilename - string of the path to the comsol simulation file
 		"""
 		_, self.x, self.y, self.data = readComsolFileGrid(emfilename)
+		self.createFields()
 
 	def newEventCollection(self, eventCollection):
 		"""
@@ -348,9 +352,11 @@ class CarrierSimulation(object):
 			wPhi = [x, y, phiAll[:,-1]]
 			Ex, Ey = ExAll[:,self.settings['VOLTAGE_SWEEP_INDEX']]/convFactor, EyAll[:,self.settings['VOLTAGE_SWEEP_INDEX']]/convFactor # in V/mm
 
-		Etot = [x, y, Ex, Ey] # Construct the E field. Put lengths in mm to match Comsol
+		# Creates an instance variable of the E field and wPhi
+		self.Etot = [x, y, Ex, Ey]
+		self.wPhi = wPhi
 
-		return Etot, wPhi
+		return None
 
 	def chargeArray(self, nehp, nHoleSteps, nElectronSteps):
 		"""
@@ -408,8 +414,6 @@ class CarrierSimulation(object):
 		nehpf = nehp + nehpNoise	# number of electron hole pairs w/ fluctuations is the average plus the noise noise determined by the specific model
 		nehpf = nehpf.astype(int)
 
-		Etot, wPhi = self.createFields()
-
 		# Set up the boundaries of the em simulation
 		if self.settings['USE_BOUNDARY_LIMITS']:
 			limits = [self.settings['X_MIN'], self.settings['X_MAX'], self.settings['Y_MIN'], self.settings['Y_MAX']]
@@ -435,8 +439,8 @@ class CarrierSimulation(object):
 					qElectrons = -qHoles
 
 					# Find path of the electrons and holes at grid point i,j
-					pathHoles = findMotion((binx[i], biny[j]), Etot, muHole, dtHole, q=qHoles, limits=limits)
-					pathElectrons = findMotion((binx[i], biny[j]), Etot, muElectron, dtElectron, q=qElectrons, limits=limits)
+					pathHoles = findMotion((binx[i], biny[j]), self.Etot, muHole, dtHole, q=qHoles, limits=limits)
+					pathElectrons = findMotion((binx[i], biny[j]), self.Etot, muElectron, dtElectron, q=qElectrons, limits=limits)
 
 					qHoleArray, qElectronArray = self.chargeArray(nehpf[i,j], pathHoles.shape[0], pathElectrons.shape[0])
 
@@ -446,8 +450,8 @@ class CarrierSimulation(object):
 
 					if self.settings['CHARGE_DIFFERENCE']:
 						# Compute difference in induced charge, qA-qB, for both electrons and holes. Incorporates scale factor (which is =1 for no scaling)
-						qAHoles, qBHoles, _ = inducedCharge(wPhi[0], wPhi[1], pathHoles, q=qHoleArray)
-						qAElectrons, qBElectrons, _ = inducedCharge(wPhi[0], wPhi[1], pathElectrons, q=qElectronArray)
+						qAHoles, qBHoles, _ = inducedCharge(self.wPhi[0], self.wPhi[1], pathHoles, q=qHoleArray)
+						qAElectrons, qBElectrons, _ = inducedCharge(self.wPhi[0], self.wPhi[1], pathElectrons, q=qElectronArray)
 						indChargeHoles = qAHoles - self.scale * qBHoles
 						indChargeElectrons = qAElectrons - self.scale * qBElectrons
 
@@ -457,8 +461,8 @@ class CarrierSimulation(object):
 
 					else:
 						# Compute induced charge on a single electrode
-						indChargeHoles = inducedChargeSingle(wPhi, pathHoles, q=qHoleArray)
-						indChargeElectrons = inducedChargeSingle(wPhi, pathElectrons, q=qElectronArray)
+						indChargeHoles = inducedChargeSingle(self.wPhi, pathHoles, q=qHoleArray)
+						indChargeElectrons = inducedChargeSingle(self.wPhi, pathElectrons, q=qElectronArray)
 						allInduced.append(indChargeHoles)
 						allInduced.append(indChargeElectrons)
 
@@ -531,13 +535,18 @@ if __name__ == '__main__':
 	# Create simulation object
 	simObject = CarrierSimulation(emfilename=emfilename, eventCollection=newCollection, configfile=configfilename)
 
-	t, q = simObject.computeChargeSignal(125)
+
 
 	# Plot results
 	fig, ax = plt.subplots()
-	ax.plot(t, -q/1.6e-19*0.05, linewidth=3)
-	ax.set_xlabel('Time ($\mu s$', fontsize=14)
+	indx = [125, 129]
+	for i in indx:
+		print(i)
+		t, q = simObject.computeChargeSignal(i)
+		ax.plot(t, -q/1.6e-19*0.05, linewidth=3, label='%i'%i)
+	ax.set_xlabel('Time ($\mu) s$', fontsize=14)
 	ax.set_ylabel('Charge (keV)', fontsize=14)
+	ax.legend()
 	plt.show()
 
 
