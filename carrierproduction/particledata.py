@@ -282,12 +282,13 @@ class CarrierSimulation(object):
 
 		# Perform initialization actions based on the settings
 		print('Apply Relevant Settings')
-		if settings['SCALE_WEIGHTED_PHI']:
+		if self.settings['SCALE_WEIGHTED_PHI']:
 			self.computeScaleFactor()
 		else:
 			self.scale = 1
 
 		self.createFields()
+
 	def newEmFile(self, emfilename):
 		"""
 		Replace the em data with what is in the new file

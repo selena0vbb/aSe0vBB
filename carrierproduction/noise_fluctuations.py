@@ -148,6 +148,38 @@ def charge_compute_wrapper(event, emfilename, e, wehp, neg, **settings):
     indx20us = t.size - 1
     return neg*qNo[indx1us]/e * wehp, neg*qNo[indx20us]/e * wehp
 
+def noise_histogram_parallel():
+    filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"
+    emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt"
+    configfilename = r"./config.txt"
+
+    settings = sc.readConfigFile(configfilename)
+
+    eventCollection = pd.gEventCollection(filename)
+
+    simObj = pd.CarrierSimulation(emfilename=emfilename, eventCollection=eventCollection, configfile=configfilename)
+
+    indx = []
+    for i in range(len(eventCollection.collection)):
+        event = eventCollection.collection[i]
+        flat = event.flattenEvent()
+
+        etot = sum(flat['energy'])
+        zmin = min(flat['z'])
+        ymax = np.max(np.abs(flat['y']))
+
+        if round(etot) == 122 and ymax < 0.5 and zmin > -0.05:
+            indx.append(i)
+
+
+    print(indx)
+    print(len(indx))
+
+    signal = simObj.processMultipleEvents(indx, processes=12)
+
+    simObj.saveTimeSeries(signal)
+
+
 def noise_histogram_multiple_events():
     filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"
     emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt"
@@ -249,8 +281,9 @@ if __name__ == '__main__':
     # fig, ax = geometric_carrier_trapping([126])
 
     # noise_histogram()
-    noise_histogram_multiple_events()
-    plt.show()
+    # noise_histogram_multiple_events()
+    noise_histogram_parallel()
+    # plt.show()
 
     # filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt'
     # _, x, y, data = plot.readComsolFileGrid(filename)
