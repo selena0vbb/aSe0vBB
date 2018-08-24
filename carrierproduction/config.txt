@@ -29,3 +29,8 @@ TAU_ELECTRONS=150.
 # dt for motion is us
 DT_HOLES=0.02
 DT_ELECTRONS=0.2
+
+# Simulation Settings
+PARALLEL_PROCESS=1
+OUTPUT_DIR='../output'
+OUTPUT_FILE='test parallele save'

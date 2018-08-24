@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 import seleniumconfig as sc
+from multiprocessing import Pool
 
 # add the EM plot module to the path and import it
 sys.path.append(r"..\EM Analysis")
@@ -487,6 +488,52 @@ class CarrierSimulation(object):
 
 		return timeHoles, qInduced
 
+	def processMultipleEvents(self, eventIdxs, processes=1):
+		"""
+		Tool for computing multiple Geant for events with one function call. Hass option for parallel computing as well
+
+		Inputs:
+			eventIdxs - a list of event IDs to iterate over
+			processes - number of processors to uses. Only relevant when PARALLEL_PROCESS setting is true
+
+		Outputs:
+			chargeSignals - list of time, induced charge pairs
+		"""
+
+		chargeSignals = []
+		if self.settings['PARALLEL_PROCESS']:
+			pool = Pool(processes=processes)
+			chargeSignals = pool.map(worker, ((self, event) for event in eventIdxs))
+			pool.close()
+			pool.join()
+			print(len(chargeSignals))
+			print(chargeSignals[0])
+
+		else:
+			for event in eventIdxs:
+				t, q = self.computeChargeSignal(event)
+				chargeSignals.append((t, q))
+
+		return chargeSignals
+
+	def saveTimeSeries(self, data):
+		outdir = self.settings['OUTPUT_DIR']
+		outfile = self.settings['OUTPUT_FILE']
+
+		outpath = Path(outdir, outfile)
+
+		np.save(data, outpath)
+
+		return None
+
+
+def worker(args):
+	"""
+	Defines a worker function for parallel processing since the Pool.map() function takes only one argument. args is a tuple of different parameters that are needed to run the simulation
+	"""
+	obj, indx = args
+	return obj.computeChargeSignal(indx)
+
 def computeDarkCurrentNoise(E, binx, biny, rho, dt):
 	"""
 	Calculates the dark current through a specific area of the detector (deliminated by the binx, biny range), converts that dark current to number of charge particles (probabalistically) and finds the induced charge from them at a time step
@@ -536,10 +583,11 @@ if __name__ == '__main__':
 	simObject = CarrierSimulation(emfilename=emfilename, eventCollection=newCollection, configfile=configfilename)
 
 
-
+	print('running simulations')
 	# Plot results
 	fig, ax = plt.subplots()
-	indx = [125, 129]
+	indx = [125, 129, 130, 131, 132]
+	results = simObject.processMultipleEvents(indx, processes=1)
 	for i in indx:
 		print(i)
 		t, q = simObject.computeChargeSignal(i)
