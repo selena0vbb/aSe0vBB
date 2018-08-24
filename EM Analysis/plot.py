@@ -1,8 +1,10 @@
 import numpy as np
-import matplotlib.pyplot as plt
+try:
+	import matplotlib.pyplot as plt
+except:
+	pass
 import scipy.interpolate as scp
 import re
-from mpl_toolkits.mplot3d import axes3d
 import brewer2mpl
 
 def readComsolFile(filename):
@@ -235,7 +237,7 @@ def interpEField2D(x, y, E, method='linear'):
 
 	return EInterp
 
-def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear'):
+def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear', roundFinalVal=False):
 
 	qi = []
 
@@ -247,11 +249,14 @@ def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear'):
 	for i in range(path.shape[0]):
 
 		wP = wPInter(path[i,0], path[i,1])
-		qi.append(-q[i]*wP[0])
+		if i == path.shape[0] - 1 and roundFinalVal:
+			qi.append(-q[i]*round(wP[0]))
+		else:
+			qi.append(-q[i]*wP[0])
 
 	return np.array(qi)
 
-def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear'):
+def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', roundFinalVal=False):
 	"""
 	Finds the induced charge at each electrode given a path of the the charged particle
 
@@ -260,6 +265,7 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear'):
 		wPotentialB - list including [x, y, Phi]. The x,y position pairs and the potential occuring at this. For electrode B
 		path - the position to compute the weighted potential at. Nx2 (x,y position at different time steps) numpy array
 		q - charge of the particle
+		roundFinalVal - boolean value indicating whether or not this is an electron/hole moving through an object. If true, rounds the value of the last weighted potential
 	Outputs:
 		qA - charge induced at electrode A
 		qB - charge induced at electrode B
@@ -281,8 +287,12 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear'):
 		Vb = VbInter(path[i,0], path[i,1])
 		# print(Va, path[i,0], path[i,1])
 		# Find the q induced via the Shokley-Ramo Theorem
-		qA.append(-q[i]*Va[0])
-		qB.append(-q[i]*Vb[0])
+		if i == path.shape[0] - 1 and roundFinalVal:
+			qA.append(-q[i]*round(Va[0]))
+			qB.append(-q[i]*round(Vb[0]))
+		else:
+			qA.append(-q[i]*Va[0])
+			qB.append(-q[i]*Vb[0])
 
 	qA, qB = np.array(qA), np.array(qB)
 
