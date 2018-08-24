@@ -71,14 +71,15 @@ def testScaleFactor():
 
 	tt, qq = pd.computeChargeSignal(event, emfilename, **settings)
 
-	fig, ax = plt.subplots()
-	ax.plot(t, -q, 'k', linewidth=3)
-	ax.plot(tt, -qq, '-b', linewidth=3)
-	ax.set_xlabel(r'Time ($\mu s$)', fontsize=14)
-	ax.set_ylabel(r'Induced Charge (C)', fontsize=14)
-	ax.legend(['Scaled', 'Not Scaled'])
+	# fig, ax = plt.subplots()
+	# ax.plot(t, -q, 'k', linewidth=3)
+	# ax.plot(tt, -qq, '-b', linewidth=3)
+	# ax.set_xlabel(r'Time ($\mu s$)', fontsize=14)
+	# ax.set_ylabel(r'Induced Charge (C)', fontsize=14)
+	# ax.legend(['Scaled', 'Not Scaled'])
 
-	return fig, ax
+	# return fig, ax
+	return etot
 
 
 if __name__ == '__main__':
