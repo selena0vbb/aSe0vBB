@@ -511,9 +511,6 @@ class CarrierSimulation(object):
 			chargeSignals = pool.map(worker, ((self, event) for event in eventIdxs))
 			pool.close()
 			pool.join()
-			print(len(chargeSignals))
-			print(chargeSignals[0])
-
 		else:
 			for event in eventIdxs:
 				t, q = self.computeChargeSignal(event)
@@ -525,9 +522,13 @@ class CarrierSimulation(object):
 		outdir = self.settings['OUTPUT_DIR']
 		outfile = self.settings['OUTPUT_FILE']
 
-		outpath = Path(outdir, outfile)
+		outpath = Path(outdir) / outfile
 
-		np.save(data, outpath)
+		fobj = open(str(outpath), 'w')
+
+		np.save(fobj, data)
+
+		fobj.close()
 
 		return None
 

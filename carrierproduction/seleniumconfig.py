@@ -34,7 +34,7 @@ def castType(stringData):
 		try:
 			castData = float(stringData)
 		except ValueError:
-			castData = stringData
+			castData = stringData.split('\n')[0]
 
 	return castData
 
