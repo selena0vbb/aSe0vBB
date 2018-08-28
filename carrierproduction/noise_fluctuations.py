@@ -1,6 +1,6 @@
 import particledata as pd
 import seleniumconfig as sc
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import brewer2mpl
 # import plot
 import numpy as np
@@ -149,9 +149,9 @@ def charge_compute_wrapper(event, emfilename, e, wehp, neg, **settings):
     return neg*qNo[indx1us]/e * wehp, neg*qNo[indx20us]/e * wehp
 
 def noise_histogram_parallel():
-    filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"
-    emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt"
-    configfilename = r"./config.txt"
+    filename ="/home/apiers/data/particle/122_keV_testTupleLarge.root"
+    emfilename = "/home/apiers/data/em/kapton_layer_analysis_5um_spacing_fullsize.txt"
+    configfilename = "./config.txt"
 
     settings = sc.readConfigFile(configfilename)
 
@@ -175,9 +175,9 @@ def noise_histogram_parallel():
     print(indx)
     print(len(indx))
 
-    signal = simObj.processMultipleEvents(indx, processes=12)
+    signal = simObj.processMultipleEvents(indx, processes=20)
 
-    simObj.saveTimeSeries(signal)
+    simObj.saveTimeSeries(np.array(signal))
 
 
 def noise_histogram_multiple_events():
