@@ -12,6 +12,7 @@ import sys
 import seleniumconfig as sc
 from multiprocessing import Pool
 from pathlib import Path
+import tqdm
 
 # add the EM plot module to the path and import it
 sys.path.append(str(Path('../EM Analysis')))
@@ -493,13 +494,14 @@ class CarrierSimulation(object):
 
 		return timeHoles, qInduced
 
-	def processMultipleEvents(self, eventIdxs, processes=1):
+	def processMultipleEvents(self, eventIdxs, processes=1, chunksize=8):
 		"""
 		Tool for computing multiple Geant for events with one function call. Hass option for parallel computing as well
 
 		Inputs:
 			eventIdxs - a list of event IDs to iterate over
 			processes - number of processors to uses. Only relevant when PARALLEL_PROCESS setting is true
+			chunksize - number of chunks to break the eventIdx into and send to each worker at a time.
 
 		Outputs:
 			chargeSignals - list of time, induced charge pairs
@@ -508,11 +510,13 @@ class CarrierSimulation(object):
 		chargeSignals = []
 		if self.settings['PARALLEL_PROCESS']:
 			pool = Pool(processes=processes)
-			chargeSignals = pool.map(worker, ((self, event) for event in eventIdxs))
+			#chargeSignals = pool.map(worker, ((self, event) for event in eventIdxs))
+			for x in tqdm.tqdm(pool.imap_unordered(worker, ((self, event) for event in eventIdxs), chunksize=chunksize), total=len(eventIdxs)):
+				chargeSignals.append(x)
 			pool.close()
 			pool.join()
 		else:
-			for event in eventIdxs:
+			for event in tqdm.tqdm(eventIdxs):
 				t, q = self.computeChargeSignal(event)
 				chargeSignals.append((t, q))
 
