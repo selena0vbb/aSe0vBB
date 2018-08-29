@@ -456,8 +456,8 @@ class CarrierSimulation(object):
 
 					if self.settings['CHARGE_DIFFERENCE']:
 						# Compute difference in induced charge, qA-qB, for both electrons and holes. Incorporates scale factor (which is =1 for no scaling)
-						qAHoles, qBHoles, _ = inducedCharge(self.wPhi[0], self.wPhi[1], pathHoles, q=qHoleArray)
-						qAElectrons, qBElectrons, _ = inducedCharge(self.wPhi[0], self.wPhi[1], pathElectrons, q=qElectronArray)
+						qAHoles, qBHoles, _ = inducedCharge(self.wPhi[0], self.wPhi[1], pathHoles, q=qHoleArray, roundFinalVal=self.settings['ROUND_FINAL_WEIGHTED_PHI'])
+						qAElectrons, qBElectrons, _ = inducedCharge(self.wPhi[0], self.wPhi[1], pathElectrons, q=qElectronArray, roundFinalVal=self.settings['ROUND_FINAL_WEIGHTED_PHI'])
 						indChargeHoles = qAHoles - self.scale * qBHoles
 						indChargeElectrons = qAElectrons - self.scale * qBElectrons
 

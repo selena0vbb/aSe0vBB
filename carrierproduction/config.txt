@@ -10,7 +10,7 @@ CARRIER_LIFETIME_POISSON=0
 # EM settings
 CHARGE_DIFFERENCE=1
 VOLTAGE_SWEEP_INDEX=4
-SCALE_WEIGHTED_PHI=0
+SCALE_WEIGHTED_PHI=1
 USE_BOUNDARY_LIMITS=1
 UNIT_CONVERSION_FACTOR=1.e3
 ELEMENTARY_CHARGE=1.6e-19
@@ -34,4 +34,4 @@ DT_ELECTRONS=0.2
 # Simulation Settings
 PARALLEL_PROCESS=1
 OUTPUT_DIR=/home/apiers/data/carrier
-OUTPUT_FILE=coplanar_noscaling_particle_event_trap.npy
+OUTPUT_FILE=coplanar_scaling_particle_event_trap.npy

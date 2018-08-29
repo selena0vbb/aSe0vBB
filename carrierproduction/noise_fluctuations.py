@@ -171,8 +171,6 @@ def noise_histogram_parallel():
         if round(etot) == 122 and ymax < 0.5 and zmin > -0.05:
             indx.append(i)
 
-
-    print(indx)
     print(len(indx))
 
     signal = simObj.processMultipleEvents(indx, processes=20)
