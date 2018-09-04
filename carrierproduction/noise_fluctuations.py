@@ -149,8 +149,8 @@ def charge_compute_wrapper(event, emfilename, e, wehp, neg, **settings):
     return neg*qNo[indx1us]/e * wehp, neg*qNo[indx20us]/e * wehp
 
 def noise_histogram_parallel():
-    filename ="/home/apiers/data/particle/122_keV_testTupleLarge.root"
-    emfilename = "/home/apiers/data/em/kapton_layer_analysis_5um_spacing_fullsize.txt"
+    filename =r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTupleLarge.root"
+    emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt"
     configfilename = "./config.txt"
 
     settings = sc.readConfigFile(configfilename)
@@ -173,7 +173,7 @@ def noise_histogram_parallel():
 
     print(len(indx))
 
-    signal = simObj.processMultipleEvents(indx, processes=20)
+    signal = simObj.processMultipleEvents(indx, processes=1)
 
     simObj.saveTimeSeries(np.array(signal))
 
