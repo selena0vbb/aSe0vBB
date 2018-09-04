@@ -13,8 +13,10 @@ matplotlib==2.2.2
 numpy==1.14.2
 pathlib==1.0.1
 pathlib2==2.3.2
+pexpect==4.6.0
 pickleshare==0.7.4
 prompt-toolkit==1.0.15
+ptyprocess==0.6.0
 pyflakes==2.0.0
 Pygments==2.2.0
 pyparsing==2.2.0
@@ -24,6 +26,9 @@ scandir==1.7
 scipy==1.0.0
 simplegeneric==0.8.1
 six==1.11.0
+subprocess32==3.5.2
+tqdm==4.25.0
 traitlets==4.3.2
+virtualenv==16.0.0
 wcwidth==0.1.7
 win-unicode-console==0.5

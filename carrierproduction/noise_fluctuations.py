@@ -4,6 +4,7 @@ import seleniumconfig as sc
 import brewer2mpl
 # import plot
 import numpy as np
+import time
 
 def geometric_carrier_trapping(eventIDs):
     filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"
