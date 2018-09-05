@@ -577,6 +577,57 @@ def scaleWeightPhi(wPhiA, wPhiB, dimSize, depth=0.5, xrange=[0.35, 0.65]):
 
 	return np.mean(phiDiffA/phiDiffB)
 
+def filterSignal(signal, time, freqResponseFile):
+	"""
+	Filters the signal given the frequency response of the circuit provided in a .txt file
+	Inputs:
+		signal - Nx1 dimensional numpy array containing the time domain singal
+		time - Nx1 dimensional numpy array of time associated with the signale
+		freqResponseFile - spice frequency response file name for the amplification circuit
+	"""
+
+	f = open(freqResponseFile)
+
+	fcircuit = []
+	gain = []
+
+	for line in f:
+		# Split line at tabs to get all the elements in the line
+		lineElement = line.split('\t')
+
+		# Append frequency and gain
+		fcircuit.append(float(lineElement[0]))
+		gain.append(float(lineElement[1].split('dB')[0][1:]))
+
+
+	fcircuit = np.array(fcircuit)
+	gain = np.array(gain)
+
+	f.close()
+
+	dt = time[1] - time[0]
+	N = signal.size
+
+	# Compute fft of charge time domain signal
+	yf = np.fft.fftshift(np.fft.fft(signal))
+	xf = np.fft.fftshift(np.fft.fftfreq(N, dt))
+
+	# interpolate gain
+	gainInterpolatedB = np.interp(xf, fcircuit, gain)
+	gainInterpolate = 10**(gainInterpolatedB / 10)
+
+	# Finds the filtered signal in the frequency domain. Multiplication in frequency domain
+	signalFilterFreq = yf * gainInterpolate
+
+	# Inverse fourrier transform
+	signalFilter = np.fft.ifft(signalFilterFreq)
+
+	return signalFilter, signalFilterFreq, xf, yf
+
+
+
+
+
 if __name__ == '__main__':
 	# used for debuggin information. If the particledata.py file is run this segment of the code will run
 	filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"
