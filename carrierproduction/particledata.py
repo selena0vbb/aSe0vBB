@@ -591,6 +591,9 @@ def filterSignal(signal, time, freqResponseFile):
 	fcircuit = []
 	gain = []
 
+	# Clear header
+	f.readline()
+
 	for line in f:
 		# Split line at tabs to get all the elements in the line
 		lineElement = line.split('\t')
@@ -609,12 +612,11 @@ def filterSignal(signal, time, freqResponseFile):
 	N = signal.size
 
 	# Compute fft of charge time domain signal
-	yf = np.fft.fftshift(np.fft.fft(signal))
-	xf = np.fft.fftshift(np.fft.fftfreq(N, dt))
+	yf = np.fft.fft(signal)
+	xf = np.fft.fftfreq(N, dt)
 
 	# interpolate gain
-	gainInterpolatedB = np.interp(xf, fcircuit, gain)
-	gainInterpolate = 10**(gainInterpolatedB / 10)
+	gainInterpolate = np.interp(xf[:N//2], fcircuit, 10**(gain/10))
 
 	# Finds the filtered signal in the frequency domain. Multiplication in frequency domain
 	signalFilterFreq = yf * gainInterpolate
@@ -622,10 +624,7 @@ def filterSignal(signal, time, freqResponseFile):
 	# Inverse fourrier transform
 	signalFilter = np.fft.ifft(signalFilterFreq)
 
-	return signalFilter, signalFilterFreq, xf, yf
-
-
-
+	return signalFilter, time, signalFilterFreq, xf, yf
 
 
 if __name__ == '__main__':
