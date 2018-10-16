@@ -86,17 +86,17 @@ def takeSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12):
 	return slicedData
 
 
-def plotPhi(pos, data, funcIdx, type='contour', figH=None, color='Reds'):
+def plotPhi(pos, data, funcIdx, type='contour', figH=None, color='Reds', colortype='sequential'):
 	"""
 	Plots the potential (phi) of a 2D slice of comsol simulation
 
 	Inputs:
-		data - NxM numpy array of Comsol data organized in columns of axis position and then columns of the function values
+		pos - (x,y) data
+		data - comsol data in regular grid format. If multiple columns supplied, selcts one with funcIdx
 		funcIdx - index of the function to be plotted in the data set (column number)
-		eps - parameter to select similar values in a slice The way that Comsol sets up the grid means there are very
-			small variations even within what we would consider one slice. The eps makes it so we include everything
-			within the range of sliceVal +/- eps
 		figH - tuple with (fig, ax)
+		color - brewer2mpl color to use
+		colortype - brewer2mpl color scheme to use. sequential, diverging, or qualitative
 	Outputs:
 		figHandle - handle to the python plot created by the function
 
@@ -116,9 +116,10 @@ def plotPhi(pos, data, funcIdx, type='contour', figH=None, color='Reds'):
 		ax = figH[1]
 
 	# Plot the interpolated values
+	ncontour=9
 	if type is 'contour':
-		ax.contour(pos[0], pos[1], phi, 8, linewidth=0.5, colors='k')
-		cax = ax.contourf(pos[0], pos[1], phi, 8, cmap=brewer2mpl.get_map(color, 'sequential', 8).mpl_colormap, vmin=np.amin(phi), vmax=np.amax(phi))
+		ax.contour(pos[0], pos[1], phi, ncontour, linewidth=0.5, colors='k')
+		cax = ax.contourf(pos[0], pos[1], phi, ncontour, cmap=brewer2mpl.get_map(color, colortype, ncontour).mpl_colormap, vmin=np.amin(phi), vmax=np.amax(phi))
 		return fig, ax, cax
 
 	elif type is 'mesh':
