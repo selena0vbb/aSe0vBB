@@ -577,19 +577,14 @@ def scaleWeightPhi(wPhiA, wPhiB, dimSize, depth=0.5, xrange=[0.35, 0.65]):
 
 	return np.mean(phiDiffA/phiDiffB)
 
-def filterSignal(signal, time, freqResponseFile):
+def readFreqResponse(freqResponseFile):
 	"""
-	Filters the signal given the frequency response of the circuit provided in a .txt file
-	Inputs:
-		signal - Nx1 dimensional numpy array containing the time domain singal
-		time - Nx1 dimensional numpy array of time associated with the signale
-		freqResponseFile - spice frequency response file name for the amplification circuit
+	Reads the LTSpice frequency response. Outputs frequency and gain in dB
 	"""
-
 	f = open(freqResponseFile)
 
 	fcircuit = []
-	gain = []
+	gaindB = []
 
 	# Clear header
 	f.readline()
@@ -600,13 +595,26 @@ def filterSignal(signal, time, freqResponseFile):
 
 		# Append frequency and gain
 		fcircuit.append(float(lineElement[0]))
-		gain.append(float(lineElement[1].split('dB')[0][1:]))
+		gaindB.append(float(lineElement[1].split('dB')[0][1:]))
 
 
 	fcircuit = np.array(fcircuit)
-	gain = np.array(gain)
+	gaindB = np.array(gaindB)
 
 	f.close()
+
+	return fcircuit, gaindB
+
+def filterSignal(signal, time, freqResponseFile):
+	"""
+	Filters the signal given the frequency response of the circuit provided in a .txt file
+	Inputs:
+		signal - Nx1 dimensional numpy array containing the time domain singal
+		time - Nx1 dimensional numpy array of time associated with the signale
+		freqResponseFile - spice frequency response file name for the amplification circuit
+	"""
+
+	fcircuit, gain = readFreqResponse(freqResponseFile)
 
 	dt = time[1] - time[0]
 	N = signal.size
