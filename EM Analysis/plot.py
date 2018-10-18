@@ -108,7 +108,7 @@ def takeSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12):
 	return slicedData
 
 
-def plotPhi(pos, data, funcIdx, type='contour', figH=None, color='Reds', colortype='sequential'):
+def plotPhi(pos, data, funcIdx, type='contour', figH=None, color=None, ncontour=9):
 	"""
 	Plots the potential (phi) of a 2D slice of comsol simulation
 
@@ -138,10 +138,12 @@ def plotPhi(pos, data, funcIdx, type='contour', figH=None, color='Reds', colorty
 		ax = figH[1]
 
 	# Plot the interpolated values
-	ncontour=9
+
+	if color == None:
+		color = brewer2mpl.get_map('Reds', 'sequential', ncontour).mpl_colormap
 	if type is 'contour':
 		ax.contour(pos[0], pos[1], phi, ncontour, linewidth=0.5, colors='k')
-		cax = ax.contourf(pos[0], pos[1], phi, ncontour, cmap=brewer2mpl.get_map(color, colortype, ncontour).mpl_colormap, vmin=np.amin(phi), vmax=np.amax(phi))
+		cax = ax.contourf(pos[0], pos[1], phi, ncontour, cmap=color, vmin=np.amin(phi), vmax=np.amax(phi))
 		return fig, ax, cax
 
 	elif type is 'mesh':
