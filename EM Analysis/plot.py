@@ -66,6 +66,28 @@ def readComsolFileGrid(filename):
 
 	return header, x, y, func
 
+def readComsolFileGrid3d(filename):
+	header, data = [], []
+	file = open(filename, 'r')
+
+	# read each line and populate data array
+	for lines in file:
+
+		# Separate into header and data based of leading % sign.
+		if lines[0] == '%':
+			header.append(re.sub('[\n%]','',lines.replace(' ', '')))
+		else:
+			# Split the line into individual values and convert to floats
+			splitString = re.sub('[\n]','',lines).split()
+			data.append([float(i)for i in splitString])
+
+	file.close()
+	data = np.array(data)
+	func = data[:,np.arange(3,len(splitString))]
+	x, y, z = np.unique(data[:,0]), np.unique(data[:,1]), np.unique(data[:,2])
+
+	return header, (x,y,z), func
+
 def takeSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12):
 	"""
 	Performs the same action as Plot Slice except returns the data instead of the figure
