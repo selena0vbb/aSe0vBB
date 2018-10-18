@@ -163,8 +163,8 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 	Computation done on a 2D slice (assumes translational invariance in one direction)
 
 	Inputs
-		xi - initial position. Tuple of 2 points, x,y
-		E - the electric field at all point in the model. Nx4 matrix where N is the number of different grid points and 4 corresponds to x,y,Ex,Ey to fully describe the vector field
+		xi - initial position. Tuple of 2 or 3 points, x,y,z
+		E - the electric field at all point in the model. Nx4 or Nx6 matrix where N is the number of different grid points and 4 (6) corresponds to the 2 (3) positions and their corresponding E fields
 		vDrift - drift velocity (length^2/(V*time))
 		dt = time step
 	Outputs
@@ -175,45 +175,101 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 	t = 0
 	x = xi[0]
 	y = xi[1]
+	if len(xi) == 3:
+		threeDim = True
+		z = xi[2]
+	else:
+		threeDim = False
+
 	if not limits:
 		xmin, xmax = np.amin(E[0]), np.amax(E[0])
 		ymin, ymax = np.amin(E[1]), np.amax(E[1])
+		if threeDim:
+			zmin, zmax = np.amin(E[2]), np.amax(E[2])
 	else:
 		xmin, xmax = limits[0], limits[1]
 		ymin, ymax = limits[2], limits[3]
+		if threeDim:
+			zmin, zmax = limits[4], limits[5]
 
 	xt = []
 
 	# Create interpolating functions for the E fields
-	ExInter = scp.interp2d(E[0], E[1], np.reshape(E[2],(E[1].size, E[0].size)), kind=method)
-	EyInter = scp.interp2d(E[0], E[1], np.reshape(E[3],(E[1].size, E[0].size)), kind=method)
+	if threeDim:
+		ExInter = scp.RegularGridInterpolator((E[0], E[1], E[2]), np.reshape(E[3], (E[0].size, E[1].size, E[2].size), order='F'), bounds_error=False)
+		EyInter = scp.RegularGridInterpolator((E[0], E[1], E[2]), np.reshape(E[4], (E[0].size, E[1].size, E[2].size), order='F'), bounds_error=False)
+		EzInter = scp.RegularGridInterpolator((E[0], E[1], E[2]), np.reshape(E[5], (E[0].size, E[1].size, E[2].size), order='F'), bounds_error=False)
+	else:
+		ExInter = scp.RegularGridInterpolator((E[0], E[1]), np.reshape(E[2], (E[0].size, E[1].size), order='F'), bounds_error=False)
+		EyInter = scp.RegularGridInterpolator((E[0], E[1]), np.reshape(E[3], (E[0].size, E[1].size), order='F'), bounds_error=False)
 
 	# While the charge carrier is in the selenium, keep finding the position
-	while(x < xmax and x > xmin and y < ymax and y > ymin):
-		xt.append([x,y,t])
+	inBound = True
+	while(inBound):
 
-		# Interpolate for values of Ex and Ey at the specific position
-		Ex = ExInter(x, y)
-		Ey = EyInter(x, y)
+		if threeDim:
+			xt.append([x,y,z,t])
 
-		# Solve equation of motion
-		xNext = x + vDrift*Ex*np.sign(q)*dt
-		yNext = y + vDrift*Ey*np.sign(q)*dt
+			# Interpolate for values of Ex and Ey at the specific position
+			Ex = ExInter([x, y, z])
+			Ey = EyInter([x, y, z])
+			Ez = EzInter([x, y, z])
 
-		# Assign the new version of x, y, and t
-		x = xNext
-		y = yNext
+			# Solve equation of motion
+			xNext = x + vDrift*Ex[0]*np.sign(q)*dt
+			yNext = y + vDrift*Ey[0]*np.sign(q)*dt
+			zNext = z + vDrift*Ez[0]*np.sign(q)*dt
+
+			# Assign the new version of x, y, and t
+			x = xNext
+			y = yNext
+			z = zNext
+
+			inBound = x < xmax and x > xmin and y < ymax and y > ymin and z < zmax and z > zmin
+
+		else:
+			xt.append([x,y,t])
+
+			# Interpolate for values of Ex and Ey at the specific position
+			Ex = ExInter([x, y])
+			Ey = EyInter([x, y])
+
+			# Solve equation of motion
+			xNext = x + vDrift*Ex[0]*np.sign(q)*dt
+			yNext = y + vDrift*Ey[0]*np.sign(q)*dt
+
+			# Assign the new version of x, y, and t
+			x = xNext
+			y = yNext
+
+			inBound = x < xmax and x > xmin and y < ymax and y > ymin
+
+
 		t = t + dt
 
 	# Add value at the limit
-	if x > xmax:
-		xt.append([xmax, y, t])
-	elif x < xmin:
-		xt.append([xmin, y, t])
-	elif y > ymax:
-		xt.append([x, ymax, t])
+	if threeDim:
+		if x > xmax:
+			xt.append([xmax, y, z, t])
+		elif x < xmin:
+			xt.append([xmin, y, z, t])
+		elif y > ymax:
+			xt.append([x, ymax, z, t])
+		elif y < ymin:
+			xt.append([x, ymin, z, t])
+		elif z > zmax:
+			xt.append([x, y, zmax, t])
+		else:
+			xt.append([x, y, zmin, t])
 	else:
-		xt.append([x, ymin, t])
+		if x > xmax:
+			xt.append([xmax, y, t])
+		elif x < xmin:
+			xt.append([xmin, y, t])
+		elif y > ymax:
+			xt.append([x, ymax, t])
+		else:
+			xt.append([x, ymin, t])
 
 	# convert to numpy array and return the data
 	return np.array(xt)

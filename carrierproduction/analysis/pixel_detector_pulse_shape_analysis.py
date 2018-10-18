@@ -1,9 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import particledata as pd
+# import particledata as pd
 import brewer2mpl
 import os
 from scipy.signal import butter, lfilter, freqz
+from mpl_toolkits.mplot3d import Axes3D
+
+import sys
+sys.path.append(r'C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\EM Analysis')
+import plot
 
 def plotPulsesRaw(datafile, nPerGraph, nGraph, titlestring='', show=True):
     """
@@ -220,18 +225,59 @@ def spectrumWidthFilter(filename):
     ax.set_ylabel('Sigma of Energy Distribution (keV)', fontsize=16)
     ax.set_title('Spread of Energy Spectrum Due to Lowpass Filter Frequency', fontsize=18)
 
+def test3DGrid(emfile):
+
+    _, pos, data = plot.readComsolFileGrid3d(emfile)
+    x, y, z = pos[0], pos[1], pos[2]
+
+    nDataColumns = data.shape[1]
+
+    # Refactoring data
+    phi = data[:, np.arange(0, nDataColumns, 4)]
+    Ex = data[:, np.arange(1, nDataColumns, 4)]
+    Ey = data[:, np.arange(2, nDataColumns, 4)]
+    Ez = data[:, np.arange(3, nDataColumns, 4)]
+
+    phi = np.reshape(phi[:,0], (x.size, y.size, z.size), order='F')
+
+    # # Test to make sure the potentials are correct
+    # for i in range(10):
+    #     fig, ax, _ = plot.plotPhi((y,z), phi[int(i/10*x.size),:,:].flatten(order='F'), 1)
+    #     ax.set_title('%.2f'%i)
+
+    # Test find path for 2 and 3 dimensions
+    # xslice = 50
+    # path2D = plot.findMotion((10e-6, 50e-6), [y, z, Ey[xslice::x.size,0], Ez[xslice::x.size,0]], 19e-12, 0.01, q=1, limits=[-0.001, 0.001, -100e-6, 100e-6])
+    # fig, ax = plt.subplots()
+    # ax.plot(path2D[:-1,0], path2D[:-1,1])
+    # ax.set_xlim([0, 20e-6])
+
+    # Test 3d
+    path3D = plot.findMotion((1.1e-3, 1.2e-3, 50e-6), [x, y, z, Ex[:,0], Ey[:,0], Ez[:,0]], 19e-12, 0.01, q=1, limits=[-0.002, 0.002, -0.002, 0.002, -99e-6, 99e-6])
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot(path3D[:,0], path3D[:,1], path3D[:,2])
+
+
+    print(path3D[:,0])
+    print(path3D[:,1])
+    print(path3D[:,2])
+    plt.show()
+
 
 if __name__ == '__main__':
 
     filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\pixel_particle_event.npy'
+    emfilename = r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\pixel_detector_2mmdiam_200umAse_3d_small.txt'
 
     # plotPulsesRaw(filename, 12, 3, show=False)
-    energyHistogram()
+    # energyHistogram()
     # testFreqResponse()
     # filterParam(1.e6, 30.e-12, 1.e4, 30.e-12)
     # testScpFilter()
     # plotPulsesFiltered(filename, 8, 4, show=False)
     # energyHistogram()
     # spectrumWidthFilter(filename)
-    plt.show()
+    test3DGrid(emfilename)
+    # plt.show()
     # checkData(filename)
