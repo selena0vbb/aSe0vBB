@@ -4,7 +4,7 @@
 CARRIER_GENERATION_POISSON=0
 CARRIER_GENERATION_BINOMIAL=0
 DARK_CURRENT_BINOMIAL=0
-CARRIER_LIFETIME_GEOMETRIC=1
+CARRIER_LIFETIME_GEOMETRIC=0
 CARRIER_LIFETIME_POISSON=0
 
 # EM settings
@@ -19,6 +19,8 @@ X_MIN=-5.0
 X_MAX=5.0
 Y_MIN=-0.099
 Y_MAX=0.1
+Z_MIN=0.099
+Z_MAX=-0.099
 
 # aSe Properties
 # Mu in mm^2/(V*us)
@@ -32,6 +34,8 @@ DT_HOLES=0.02
 DT_ELECTRONS=0.2
 
 # Simulation Settings
-PARALLEL_PROCESS=1
-OUTPUT_DIR=/home/apiers/data/carrier
-OUTPUT_FILE=coplanar_scaling_particle_event_trap.npy
+PARALLEL_PROCESS=0
+OUTPUT_DIR=C:/Users/alexp/Documents/UW/Research/Selenium
+OUTPUT_FILE=coplanar_noscaling_particle_event_trap.npy
+THREE_DIMENSION=1
+
