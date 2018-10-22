@@ -15,7 +15,9 @@ from pathlib import Path
 import tqdm
 
 # add the EM plot module to the path and import it
-sys.path.append(str(Path('../EM Analysis')))
+sys.path.append('/home/apiers/aSe0vBB/EM Analysis')
+print(sys.version)
+print(sys.path)
 from plot import readComsolFileGrid, findMotion, inducedCharge, inducedChargeSingle
 
 
@@ -258,7 +260,7 @@ class CarrierSimulation(object):
 		"""
 		self.emfilname = emfilename
 		self.configfile = configfile
-
+		
 		print('Read Geant4 Simulation Data')
 		if type(eventCollection) is str:
 			self.eventCollection = gEventCollection(eventCollection)
@@ -289,6 +291,8 @@ class CarrierSimulation(object):
 			self.scale = 1
 
 		self.createFields()
+		self.outputdir = self.settings['OUTPUT_DIR']
+		self.outputfile = self.settings['OUTPUT_FILE']
 
 	def newEmFile(self, emfilename):
 		"""
@@ -523,8 +527,8 @@ class CarrierSimulation(object):
 		return chargeSignals
 
 	def saveTimeSeries(self, data):
-		outdir = self.settings['OUTPUT_DIR']
-		outfile = self.settings['OUTPUT_FILE']
+		outdir = self.outputdir
+		outfile = self.outputfile
 
 		outpath = Path(outdir) / outfile
 
