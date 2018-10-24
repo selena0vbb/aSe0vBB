@@ -27,17 +27,17 @@ class SeleniumDetectorConstruction : public G4VUserDetectorConstruction
 		void defineMaterials();
 
 		G4VPhysicalVolume* fSeleniumPV; // Selenium physical volume
-		G4VPhysicalVolume* fElectrodePV; // Gold electrode physical volume
-	
+		G4VPhysicalVolume* fGlassPV; // SiO2 physical volume
+
 };
 
 
-inline const G4VPhysicalVolume* SeleniumDetectorConstruction::GetSeleniumPV() const 
+inline const G4VPhysicalVolume* SeleniumDetectorConstruction::GetSeleniumPV() const
 {
 	return fSeleniumPV;
 }
 
-inline const G4VPhysicalVolume* SeleniumDetectorConstruction::GetElectrodePV() const 
+inline const G4VPhysicalVolume* SeleniumDetectorConstruction::GetGlassPV() const
 {
-	return fElectrodePV;
+	return fGlassPV;
 }

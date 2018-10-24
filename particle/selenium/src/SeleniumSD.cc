@@ -27,10 +27,10 @@ void SeleniumSD::Initialize(G4HCofThisEvent* hce)
 	// Create hits collection
 	fHitsCollection = new SeleniumHitsCollection(SensitiveDetectorName, collectionName[0]);
 
-	// Get the collection ID based on the actual collection. Set it to the class member 
+	// Get the collection ID based on the actual collection. Set it to the class member
 	if ( fHitsCollectionID < 0)
 		fHitsCollectionID = G4SDManager::GetSDMpointer()->GetCollectionID(fHitsCollection);
-	
+
 	// Add collection to hits collection of this event hce
 	hce->AddHitsCollection(fHitsCollectionID, fHitsCollection);
 
@@ -61,7 +61,6 @@ G4bool SeleniumSD::ProcessHits(G4Step* step, G4TouchableHistory* history)
 	}
 	else
 	{
-		// G4cout << step->GetTrack()->GetCreatorProcess() << G4endl;
 		hit->SetCreatorProcessName(step->GetTrack()->GetCreatorProcess()->GetProcessName());
 	}
 
@@ -74,10 +73,10 @@ G4bool SeleniumSD::ProcessHits(G4Step* step, G4TouchableHistory* history)
 
 void SeleniumSD::EndOfEvent(G4HCofThisEvent* hce)
 {
-	if ( verboseLevel > 1 ) { 
+	if ( verboseLevel > 1 ) {
      	G4int nofHits = fHitsCollection->entries();
      	G4cout << G4endl
-            << "-------->Hits Collection: in this event they are " << nofHits 
+            << "-------->Hits Collection: in this event they are " << nofHits
             << " hits in the tracker chambers: " << G4endl;
 	     for ( G4int i=0; i<nofHits; i++ ) (*fHitsCollection)[i]->Print();
   	}
