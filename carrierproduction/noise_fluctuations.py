@@ -150,40 +150,48 @@ def charge_compute_wrapper(event, emfilename, e, wehp, neg, **settings):
     return neg*qNo[indx1us]/e * wehp, neg*qNo[indx20us]/e * wehp
 
 def noise_histogram_parallel():
-    filename =r"/home/apiers/data/particle/136_keV_70k.root"
-    emfilename = r"/home/apiers/data/em/pixel_detector_2mmdiam_200umAse.txt"
+
     configfilename = "/home/apiers/aSe0vBB/carrierproduction/config.txt"
 
     settings = sc.readConfigFile(configfilename)
 
-    eventCollection = pd.gEventCollection(filename)
+    filename=settings['PARTICLE_FILENAME']
+    emfilename=settings['EM_FILENAME']
 
-    simObj = pd.CarrierSimulation(emfilename=emfilename, eventCollection=eventCollection, configfile=configfilename)
-    filecount=0
-    filesize=400
-    outdir='/home/apiers/data/carrier/136keV'
-    filename='pixel_136keV_70k%i.npy'
-    indx = []
-    for i in range(len(eventCollection.collection)):
-        event = eventCollection.collection[i]
-        flat = event.flattenEvent()
+    nEvents = pd.numberOfEvents(filename)
 
-        etot = sum(flat['energy'])
-        zmin = min(flat['z'])
-        ymax = np.max(np.abs(flat['y']))
+    simObj = pd.CarrierSimulation(emfilename=emfilename, configfile=configfilename)
 
-        if ymax < 1.2 and zmin > -0.1:
-            indx.append(i)
+    filesize=500
+    outdir=settings['OUTPUT_DIR']
+    filename=settings['OUTPUT_FILE']
 
-	if (i+1)%filesize == 0:
-	    signal = simObj.processMultipleEvents(indx, processes=24)
-	    simObj.outputfile = filename%filecount
-	    simObj.outputdir = outdir
-            simObj.saveTimeSeries(np.array(signal))
-	    print(len(indx))
-	    indx = []
-	    signal=0
-	    filecount+=1
+
+    # Chunk event collection into smaller pieces if needed
+
+    for j in range(np.ceil(nEvents/filesize)):
+        indx = []
+        # Create new event collect with the smaller chunck size
+        newEventCollection = pd.gEventCollection(filename, eventCounterRange=[j*filesize, (j+1)*filesize-1])
+        simObj.newEventCollection(newEventCollection)
+        for i in range(len(newEventCollection)):
+            event = newEventCollection.collection[i]
+            flat = event.flattenEvent()
+            zmin = min(flat['z'])
+            ymax = np.max(np.abs(flat['y']))
+
+            if ymax < 1.2 and zmin > -0.1:
+                indx.append(i)
+
+
+
+        signal = simObj.processMultipleEvents(indx, processes=int(settings['NPROCESSORS']))
+        simObj.outputfile = filename%j
+        simObj.outputdir = outdir
+        simObj.saveTimeSeries(np.array(signal))
+        print(len(indx))
+        signal=0
+
 
 
 def noise_histogram_multiple_events():

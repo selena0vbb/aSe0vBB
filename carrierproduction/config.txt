@@ -33,5 +33,8 @@ DT_ELECTRONS=0.2
 
 # Simulation Settings
 PARALLEL_PROCESS=1
+NPROCESSORS=24.
 OUTPUT_DIR=/home/apiers/data/carrier
 OUTPUT_FILE=coplanar_scaling_particle_event_trap.npy
+EM_FILENAME=/home/apiers/data/em/pixel_detector_2mmdiam_200umAse.txt
+PARTICLE_FILENAME=/home/apiers/data/particle/136_keV_70k.root

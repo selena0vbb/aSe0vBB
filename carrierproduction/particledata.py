@@ -206,7 +206,7 @@ class gEvent(object):
 
 class gEventCollection(object):
 	"""docstring for gEventCollection"""
-	def __init__(self, rootFilename, **kwargs):
+	def __init__(self, rootFilename, eventCounterRange=None, **kwargs):
 
 		self.rootFilename = rootFilename
 		self.collection = []
@@ -216,13 +216,18 @@ class gEventCollection(object):
 		# Gets a tree with the name aSeData. Current name from Geant4 simulation.
 		tree = f.Get("aSeData")
 		eventID = -1
+		eventCounter = 0
 		hitsList = []
 
 		# Iterate over all of the entries in the tree, extracting tuple i
 		for entry in tree:
 			if eventID != entry.EventID:
 				if eventID != -1:
-					self.collection.append(gEvent(gEventID=eventID, hits=hitsList))
+					if eventCounterRange != None and eventCounter >= eventCounterRange[0]:
+							self.collection.append(gEvent(gEventID=eventID, hits=hitsList))
+					else:
+						self.collection.append(gEvent(gEventID=eventID, hits=hitsList))
+					eventCounter+=1
 				hitsList = []
 				eventID = entry.EventID
 				hit = {'trackID' : entry.TrackID, 'parentID' : entry.ParentID, 'x' : entry.x, 'y' : entry.y, 'z' : entry.z, 'energy' : entry.energy*1e3, 'particle' : entry.ParticleType, 'creatorProcess' : entry.ProcessName}
@@ -231,6 +236,9 @@ class gEventCollection(object):
 			else:
 				hit = {'trackID' : entry.TrackID, 'parentID' : entry.ParentID, 'x' : entry.x, 'y' : entry.y, 'z' : entry.z, 'energy' : entry.energy*1e3, 'particle' : entry.ParticleType, 'creatorProcess' : entry.ProcessName}
 				hitsList.append(hit)
+
+			if eventCounterRange != None and eventCounter >= eventCounterRange:
+				break
 
 
 	def printInfo(self):
@@ -260,7 +268,7 @@ class CarrierSimulation(object):
 		"""
 		self.emfilname = emfilename
 		self.configfile = configfile
-		
+
 		print('Read Geant4 Simulation Data')
 		if type(eventCollection) is str:
 			self.eventCollection = gEventCollection(eventCollection)
@@ -630,6 +638,12 @@ def filterSignal(signal, time, freqResponseFile):
 
 	return signalFilter, time, signalFilterFreq, xf, yf
 
+def numberOfEvents(rootFile, key="EneDepSe"):
+	""" Reads the root file and calculates the number of entries in the file"""
+	f = rt.TFile(rootFile)
+	obj = f.Get(key)
+
+	return obj.GetEntries()
 
 if __name__ == '__main__':
 	# used for debuggin information. If the particledata.py file is run this segment of the code will run
