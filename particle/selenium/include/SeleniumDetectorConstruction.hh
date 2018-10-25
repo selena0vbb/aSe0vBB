@@ -20,7 +20,7 @@ class SeleniumDetectorConstruction : public G4VUserDetectorConstruction
 
 		// Methods to get the physical volumes of the different parts of the detector
 		const G4VPhysicalVolume* GetSeleniumPV() const;
-		const G4VPhysicalVolume* GetElectrodePV() const;
+		const G4VPhysicalVolume* GetGlassPV() const;
 
 
 	private:

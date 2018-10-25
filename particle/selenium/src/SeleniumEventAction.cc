@@ -17,7 +17,7 @@
 SeleniumEventAction::SeleniumEventAction()
 :G4UserEventAction(),
  fEnergyDepositSe(0.),
- fEnergyDepositAu(0.)
+ fEnergyDepositSiO2(0.)
 {
 
 }
