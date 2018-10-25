@@ -112,24 +112,24 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 
 
 	// Define large copper top plate
-	// G4Box* copperS = new G4Box("CopperBlocking",
-	//             copperXY/2,
-	//             copperXY/2,
-	//             copperDepth/2);
+	G4Box* copperS = new G4Box("CopperBlocking",
+	            copperXY/2,
+	            copperXY/2,
+	            copperDepth/2);
 
-	// G4LogicalVolume* copperLV =
-	// 	new G4LogicalVolume(copperS,
-	// 	          Cu,
-	// 	          "CopperBlocking");
+	G4LogicalVolume* copperLV =
+		new G4LogicalVolume(copperS,
+		          Cu,
+		          "CopperBlocking");
 
-	// G4VPhysicalVolume* copperPV =
-	// 	new G4PVPlacement(0,
-	// 	          G4ThreeVector(0, 0, -(seleniumDepth + copperDepth)/2 -glassDepth - airSpacingZ),
-	// 	          copperLV,
-	// 	          "CopperBlocking",
-	// 	          logicalWorld,
-	// 	          false,
-	// 	          0);
+	G4VPhysicalVolume* copperPV =
+		new G4PVPlacement(0,
+		          G4ThreeVector(0, 0, -(seleniumDepth + copperDepth)/2 -glassDepth - airSpacingZ),
+		          copperLV,
+		          "CopperBlocking",
+		          logicalWorld,
+		          false,
+		          0);
 
 
 	// Create copper electrodes for pixel electrodes
