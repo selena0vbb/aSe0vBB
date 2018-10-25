@@ -27,4 +27,6 @@ const G4String seleniumHitsCollectionName = "SeleniumHitsCollection";
 const double DEFAULT_LENGTH = mm;
 const double DEFAULT_ENERGY = keV;
 
+const bool SIMPLE = true;
+
 #endif

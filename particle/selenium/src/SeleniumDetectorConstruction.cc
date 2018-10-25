@@ -229,19 +229,21 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 	            false,
 	            0);
 
-	// Setting up sensitive detector for the selenium body
+	// Setting up sensitive detector for the selenium body. Only uses if SIMPLE is false
+	if(!SIMPLE)
+	{
+		// Create a new selenium sensitive detector
+		SeleniumSD* detector = new SeleniumSD("SeleniumSD", seleniumHitsCollectionName);
 
-	// Create a new selenium sensitive detector
-	SeleniumSD* detector = new SeleniumSD("SeleniumSD", seleniumHitsCollectionName);
+		// Get pointer to SD manager
+		G4SDManager* sdManager = G4SDManager::GetSDMpointer();
+		sdManager->AddNewDetector(detector);
 
-	// Get pointer to SD manager
-	G4SDManager* sdManager = G4SDManager::GetSDMpointer();
-	sdManager->AddNewDetector(detector);
+		// Attach selenium logical volume with the new sensitive detector
+		seleniumLV->SetSensitiveDetector(detector);
+	}
 
-	// Attach selenium logical volume with the new sensitive detector
-	seleniumLV->SetSensitiveDetector(detector);
 
-	// Set up visualization attributes
 
 	// returns the physical world
 	return physWorld;

@@ -26,26 +26,29 @@ SeleniumRunAction::SeleniumRunAction(G4String name) : G4UserRunAction()
 	analysisManager->CreateH1("EneDepSe", "Energy Deposited in Selenium", 150, 0., 150.*keV, "keV");
 	analysisManager->CreateH1("EneDepSiO2", "Energy Deposited in Silicon Dioxide Layer", 150, 0., 150.*keV, "keV");
 
-	// Creating Ntuple to store data about energy and eventID for events in the silicon dioxide
-	// ntuple id=0
-	analysisManager->CreateNtuple("SiO2Data", "SiO2 Data");
-	analysisManager->CreateNtupleIColumn("Event ID");
-	analysisManager->CreateNtupleDColumn("energy");
-	analysisManager->FinishNtuple();
+	if(!SIMPLE)
+	{
+		// Creating Ntuple to store data about energy and eventID for events in the silicon dioxide
+		// ntuple id=0
+		analysisManager->CreateNtuple("SiO2Data", "SiO2 Data");
+		analysisManager->CreateNtupleIColumn("Event ID");
+		analysisManager->CreateNtupleDColumn("energy");
+		analysisManager->FinishNtuple();
 
-	// Creating Ntuple to store hit data in
-	// ntuple id=1
-	analysisManager->CreateNtuple("aSeData", "Selenium Hit Data");
-	analysisManager->CreateNtupleIColumn("EventID");
-	analysisManager->CreateNtupleIColumn("TrackID");
-	analysisManager->CreateNtupleIColumn("ParentID");
-	analysisManager->CreateNtupleDColumn("x");
-	analysisManager->CreateNtupleDColumn("y");
-	analysisManager->CreateNtupleDColumn("z");
-	analysisManager->CreateNtupleDColumn("energy");
-	analysisManager->CreateNtupleSColumn("ParticleType");
-	analysisManager->CreateNtupleSColumn("ProcessName");
-	analysisManager->FinishNtuple();
+		// Creating Ntuple to store hit data in
+		// ntuple id=1
+		analysisManager->CreateNtuple("aSeData", "Selenium Hit Data");
+		analysisManager->CreateNtupleIColumn("EventID");
+		analysisManager->CreateNtupleIColumn("TrackID");
+		analysisManager->CreateNtupleIColumn("ParentID");
+		analysisManager->CreateNtupleDColumn("x");
+		analysisManager->CreateNtupleDColumn("y");
+		analysisManager->CreateNtupleDColumn("z");
+		analysisManager->CreateNtupleDColumn("energy");
+		analysisManager->CreateNtupleSColumn("ParticleType");
+		analysisManager->CreateNtupleSColumn("ProcessName");
+		analysisManager->FinishNtuple();
+	}
 
 	filename = OUTPUTDIR + name + "_keV";
 	analysisManager->SetFileName(filename);
