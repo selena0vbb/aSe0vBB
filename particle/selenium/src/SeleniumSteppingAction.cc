@@ -37,9 +37,9 @@ void SeleniumSteppingAction::UserSteppingAction(const G4Step* step)
 	if( volume == fDetectorConstruction->GetSeleniumPV())
 	{
 		fEventAction->addEnergyDepSe(eDepStep);
-	} else if( volume == fDetectorConstruction->GetElectrodePV())
+	} else if( volume == fDetectorConstruction->GetGlassPV())
 	{
-		fEventAction->addEnergyDepAu(eDepStep);
+		fEventAction->addEnergyDepSiO2(eDepStep);
 	}
 
 }

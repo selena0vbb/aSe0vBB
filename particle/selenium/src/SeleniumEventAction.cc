@@ -31,8 +31,8 @@ SeleniumEventAction::~SeleniumEventAction()
 void SeleniumEventAction::BeginOfEventAction(const G4Event* event)
 {
 	// Initialize energy deposited in each material
-	fEnergyDepositAu = 0.;
 	fEnergyDepositSe = 0.;
+	fEnergyDepositSiO2 = 0.;
 
 }
 
@@ -40,18 +40,20 @@ void SeleniumEventAction::EndOfEventAction(const G4Event* event)
 {
 	// Get analysis manager
 	G4AnalysisManager* analysisManager = G4AnalysisManager::Instance();
-	
+
 	// Add deposited energy to histograms
 	if ( fEnergyDepositSe > 0. )
 	{
-		analysisManager->FillH1(1, fEnergyDepositSe);	
+		analysisManager->FillH1(1, fEnergyDepositSe);
 	}
-	if ( fEnergyDepositAu > 0. )
+	if ( fEnergyDepositSiO2 > 0. )
 	{
-		analysisManager->FillH1(2, fEnergyDepositAu);	
+		analysisManager->FillH1(2, fEnergyDepositSiO2);
+		analysisManager->FillNtupleIColumn(0, 0, event->GetEventID());
+		analysisManager->FillNtupleDColumn(0, 1, fEnergyDepositSiO2);
 	}
 
-	// Get the number of hits in the selenium. For each hit add 
+	// Get the number of hits in the selenium. For each hit add
 	// it to the Energy vs position histogram
 	G4HCofThisEvent* hce = event->GetHCofThisEvent();
 
@@ -69,21 +71,21 @@ void SeleniumEventAction::EndOfEventAction(const G4Event* event)
 		for( int i = 0; i < numberOfHits; i++)
 		{
 			hit = (*hc)[i];
-			analysisManager->FillNtupleIColumn(0, eventID);
-			analysisManager->FillNtupleIColumn(1, hit->GetTrackID());
-			analysisManager->FillNtupleIColumn(2, hit->GetParentID());
-			analysisManager->FillNtupleDColumn(3, hit->GetPosition().getX());
-			analysisManager->FillNtupleDColumn(4, hit->GetPosition().getY());
-			analysisManager->FillNtupleDColumn(5, hit->GetPosition().getZ());
-			analysisManager->FillNtupleDColumn(6, hit->GetEdep());
-			analysisManager->FillNtupleSColumn(7, hit->GetParticleDefinition()->GetParticleName());
-			analysisManager->FillNtupleSColumn(8, hit->GetCreatorProcessName());
+			analysisManager->FillNtupleIColumn(1, 0, eventID);
+			analysisManager->FillNtupleIColumn(1, 1, hit->GetTrackID());
+			analysisManager->FillNtupleIColumn(1, 2, hit->GetParentID());
+			analysisManager->FillNtupleDColumn(1, 3, hit->GetPosition().getX());
+			analysisManager->FillNtupleDColumn(1, 4, hit->GetPosition().getY());
+			analysisManager->FillNtupleDColumn(1, 5, hit->GetPosition().getZ());
+			analysisManager->FillNtupleDColumn(1, 6, hit->GetEdep());
+			analysisManager->FillNtupleSColumn(1, 7, hit->GetParticleDefinition()->GetParticleName());
+			analysisManager->FillNtupleSColumn(1, 8, hit->GetCreatorProcessName());
 			analysisManager->AddNtupleRow();
 
 		}
 
 	}
-	
-	
+
+
 
 }
