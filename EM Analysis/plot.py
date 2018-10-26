@@ -160,7 +160,7 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 
 	# Check to ensure the initial points is within the limits. Otherwise return None
 	if x > xmax or x < xmin or y > ymax or y < ymin:
-		return None
+		return np.array([])
 
 	xt = []
 
@@ -246,7 +246,7 @@ def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear', roundFinal
 
 	qi = []
 
-	if path == None:
+	if len(path) == 0:
 		return np.zeros(1)
 
 	if type(q) != np.ndarray:
@@ -282,7 +282,7 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 	qA = []
 	qB = []
 
-	if path == None:
+	if len(path) == 0:
 		return np.zeros(1), np.zeros(1), np.zeros(1)
 
 	# Definte interplation functions

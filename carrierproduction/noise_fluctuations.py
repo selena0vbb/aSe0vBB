@@ -186,9 +186,9 @@ def noise_histogram_parallel():
             event = newEventCollection.collection[i]
             flat = event.flattenEvent()
             zmin = min(flat['z'])
-            ymax = np.max(np.abs(flat['y']))
+            ymin = np.min(np.abs(flat['y']))
 
-            if ymax < 1.2 and zmin > -0.1:
+            if ymin < 1.2 and zmin > -0.1:
                 indx.append(i)
 
 
@@ -302,8 +302,8 @@ if __name__ == '__main__':
 
     # noise_histogram()
     # noise_histogram_multiple_events()
-    # noise_histogram_parallel()
-    testNewgEventCollection()
+    noise_histogram_parallel()
+    # testNewgEventCollection()
     # plt.show()
 
     # filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt'
