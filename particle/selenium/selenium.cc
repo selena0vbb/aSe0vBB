@@ -50,10 +50,8 @@ int main(int argc, char** argv)
 	// Defining the physics we want to use
 	G4cout << "Physics" << G4endl;
 	SeleniumPhysicsList* physics = new SeleniumPhysicsList();
-	// DAMICPhysicsListLivermore* physics = new DAMICPhysicsListLivermore();
-	// DAMICPhysicsList* physics = new DAMICPhysicsList();
 	manager->SetUserInitialization(physics);
-	
+
 	// Set User action initialization
 	G4cout << "User Action Initialization" << G4endl;
 	manager->SetUserInitialization(new SeleniumActionInitialization(filename, detector));
@@ -76,5 +74,5 @@ int main(int argc, char** argv)
 	// Job Termination
 	delete visManager;
 	delete manager;
-	
+
 }
