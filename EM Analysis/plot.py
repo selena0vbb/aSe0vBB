@@ -157,6 +157,11 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 		xmin, xmax = limits[0], limits[1]
 		ymin, ymax = limits[2], limits[3]
 
+
+	# Check to ensure the initial points is within the limits. Otherwise return None
+	if x > xmax or x < xmin or y > ymax or y < ymin:
+		return None
+
 	xt = []
 
 	# Create interpolating functions for the E fields
@@ -241,6 +246,9 @@ def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear', roundFinal
 
 	qi = []
 
+	if path == None:
+		return np.zeros(1)
+
 	if type(q) != np.ndarray:
 		q = q*np.ones(path.shape[0])
 
@@ -273,6 +281,9 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 	"""
 	qA = []
 	qB = []
+
+	if path == None:
+		return np.zeros(1), np.zeros(1), np.zeros(1)
 
 	# Definte interplation functions
 	VaInter = scp.interp2d(wPotentialA[0], wPotentialA[1], np.reshape(wPotentialA[2],(wPotentialA[1].size, wPotentialA[0].size)), kind=method)
