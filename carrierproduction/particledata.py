@@ -17,7 +17,6 @@ import tqdm
 # add the EM plot module to the path and import it
 sys.path.append('/home/apiers/aSe0vBB/EM Analysis')
 print(sys.version)
-print(sys.path)
 from plot import readComsolFileGrid, findMotion, inducedCharge, inducedChargeSingle
 
 
@@ -465,8 +464,11 @@ class CarrierSimulation(object):
 					qHoleArray, qElectronArray = self.chargeArray(nehpf[i,j], pathHoles.shape[0], pathElectrons.shape[0])
 
 					# Keep the longest time for reference in
-					if np.max([pathHoles[-1,2], pathElectrons[-1,2]]) > maxtime:
-						maxtime = np.max([pathHoles[-1,2], pathElectrons[-1,2]])
+					try:					
+						if np.max([pathHoles[-1,2], pathElectrons[-1,2]]) > maxtime:
+							maxtime = np.max([pathHoles[-1,2], pathElectrons[-1,2]])
+					except:
+						pass
 
 					if self.settings['CHARGE_DIFFERENCE']:
 						# Compute difference in induced charge, qA-qB, for both electrons and holes. Incorporates scale factor (which is =1 for no scaling)
