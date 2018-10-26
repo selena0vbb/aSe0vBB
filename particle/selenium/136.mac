@@ -6,8 +6,7 @@
 /event/verbose 0
 
 /gps/ene/mono 136 keV
-/gps/pos/centre 0 0 5 mm
+/gps/pos/centre 0 0 -11.1 mm
 /gps/ang/type iso
-/gps/ang/maxtheta 9 deg
-/analysis/setFileName ./output/136_keV_testTuple.root
+/analysis/setFileName ./output/136_keV_pixel_sio2_7k.root
 /run/beamOn 7000
