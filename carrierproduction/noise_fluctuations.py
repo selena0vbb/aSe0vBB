@@ -164,17 +164,17 @@ def noise_histogram_parallel():
 
     filesize=500
     outdir=settings['OUTPUT_DIR']
-    filename=settings['OUTPUT_FILE']
+    outfilename=settings['OUTPUT_FILE']
 
 
     # Chunk event collection into smaller pieces if needed
 
-    for j in range(np.ceil(nEvents/filesize)):
+    for j in range(int(np.ceil(nEvents/filesize))):
         indx = []
         # Create new event collect with the smaller chunck size
         newEventCollection = pd.gEventCollection(filename, eventCounterRange=[j*filesize, (j+1)*filesize-1])
         simObj.newEventCollection(newEventCollection)
-        for i in range(len(newEventCollection)):
+        for i in range(len(newEventCollection.collection)):
             event = newEventCollection.collection[i]
             flat = event.flattenEvent()
             zmin = min(flat['z'])
@@ -186,13 +186,11 @@ def noise_histogram_parallel():
 
 
         signal = simObj.processMultipleEvents(indx, processes=int(settings['NPROCESSORS']))
-        simObj.outputfile = filename%j
+        simObj.outputfile = outfilename%j
         simObj.outputdir = outdir
         simObj.saveTimeSeries(np.array(signal))
         print(len(indx))
         signal=0
-
-
 
 def noise_histogram_multiple_events():
     filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"

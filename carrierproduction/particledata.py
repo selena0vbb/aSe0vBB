@@ -237,7 +237,7 @@ class gEventCollection(object):
 				hit = {'trackID' : entry.TrackID, 'parentID' : entry.ParentID, 'x' : entry.x, 'y' : entry.y, 'z' : entry.z, 'energy' : entry.energy*1e3, 'particle' : entry.ParticleType, 'creatorProcess' : entry.ProcessName}
 				hitsList.append(hit)
 
-			if eventCounterRange != None and eventCounter >= eventCounterRange:
+			if eventCounterRange != None and eventCounter >= eventCounterRange[1]:
 				break
 
 
