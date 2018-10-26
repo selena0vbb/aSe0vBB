@@ -223,7 +223,8 @@ class gEventCollection(object):
 		for entry in tree:
 			if eventID != entry.EventID:
 				if eventID != -1:
-					if eventCounterRange != None and eventCounter >= eventCounterRange[0]:
+					if eventCounterRange != None:
+						if eventCounter >= eventCounterRange[0]:
 							self.collection.append(gEvent(gEventID=eventID, hits=hitsList))
 					else:
 						self.collection.append(gEvent(gEventID=eventID, hits=hitsList))

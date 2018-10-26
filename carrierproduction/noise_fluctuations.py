@@ -149,6 +149,14 @@ def charge_compute_wrapper(event, emfilename, e, wehp, neg, **settings):
     indx20us = t.size - 1
     return neg*qNo[indx1us]/e * wehp, neg*qNo[indx20us]/e * wehp
 
+def testNewgEventCollection():
+    filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\136_keV_70k.root"
+
+    newEventCollection = pd.gEventCollection(filename, eventCounterRange=[2,10])
+
+    print('Successfully read')
+    return None
+
 def noise_histogram_parallel():
 
     configfilename = "/home/apiers/aSe0vBB/carrierproduction/config.txt"
@@ -294,7 +302,8 @@ if __name__ == '__main__':
 
     # noise_histogram()
     # noise_histogram_multiple_events()
-    noise_histogram_parallel()
+    # noise_histogram_parallel()
+    testNewgEventCollection()
     # plt.show()
 
     # filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt'
