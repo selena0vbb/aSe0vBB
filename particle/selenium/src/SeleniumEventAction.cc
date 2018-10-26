@@ -53,6 +53,7 @@ void SeleniumEventAction::EndOfEventAction(const G4Event* event)
 		{
 			analysisManager->FillNtupleIColumn(0, 0, event->GetEventID());
 			analysisManager->FillNtupleDColumn(0, 1, fEnergyDepositSiO2);
+			analysisManager->AddNtupleRow(0);
 		}
 	}
 
@@ -76,6 +77,7 @@ void SeleniumEventAction::EndOfEventAction(const G4Event* event)
 			for( int i = 0; i < numberOfHits; i++)
 			{
 				hit = (*hc)[i];
+				G4cout << eventID;
 				analysisManager->FillNtupleIColumn(1, 0, eventID);
 				analysisManager->FillNtupleIColumn(1, 1, hit->GetTrackID());
 				analysisManager->FillNtupleIColumn(1, 2, hit->GetParentID());
@@ -85,7 +87,7 @@ void SeleniumEventAction::EndOfEventAction(const G4Event* event)
 				analysisManager->FillNtupleDColumn(1, 6, hit->GetEdep());
 				analysisManager->FillNtupleSColumn(1, 7, hit->GetParticleDefinition()->GetParticleName());
 				analysisManager->FillNtupleSColumn(1, 8, hit->GetCreatorProcessName());
-				analysisManager->AddNtupleRow();
+				analysisManager->AddNtupleRow(1);
 
 			}
 

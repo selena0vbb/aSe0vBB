@@ -63,7 +63,6 @@ void SeleniumPrimaryGeneratorAction::GeneratePrimaries(G4Event* event)
 
 	// Set particle source position
 	// fParticleGun->SetParticlePosition(G4ThreeVector(0., 0., worldZHalf));
-	G4cout<<fParticleGun->GetParticlePosition()<<G4endl;
 	fParticleGun->GeneratePrimaryVertex(event);
 
 
