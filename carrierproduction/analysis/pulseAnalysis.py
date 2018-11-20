@@ -3,6 +3,7 @@ import os
 import regex as re
 import pwlf
 import matplotlib.pyplot as plt
+import ROOT as rt
 
 
 def readBatchFiles(filepath, pattern='*.npy'):
@@ -80,26 +81,59 @@ def fitLinearPiecewise(t, signal, nPieces=4):
     return fitObj, fitResult
 
 
-def writeBinFiles(outfile, infilepath, inpattern='*.npy', conversion=500*0.05/(122*1.6e-19)):
+def writeBinFiles(outfile, infilepath, inpattern='*.npy', conversion=500*0.05/(122*1.6e-19), addNoise=False, filterPulse=False):
 
     data = readBatchFiles(infilepath, inpattern)
+    Ns = 50000
+    nNoise = 3000
+    noise = np.zeros(Ns)
+
+    if addNoise:
+        rootfile = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\Se_2000V_Co57_newfilter_Oct31_1_FFT_500mu_e.root"  # hardcoding rootfile for now
+        f = rt.TFile(rootfile)
+        setree = f.Get("SeTree")
+        noiseLeaf = setree.GetLeaf('wf')
+        entryCounter = 0
+        nEntries = setree.GetEntries()
 
     # Iterate over each pulse in the data, convert to ADC unsigned 16bit int
     for i in range(data.shape[0]):
+        singlePulse = convertPulse2ADC(data[i][0], data[i][1], fs=250, conversion=conversion)
+
+        if addNoise:
+            k = 0
+            while k < Ns:
+                if k % nNoise == 0:
+                    setree.GetEntry(entryCounter)
+                    entryCounter = (entryCounter + 1) % nEntries
+                noise[k] = noiseLeaf.GetValue(k % nNoise)
+
+                # Iterate the counter
+                k += 1
+
+            # add noise to pulse
+            try:
+                singlePulse += noise.astype('uint16')
+            except ValueError:
+                pass
+
+        if filterPulse:
+            # Filter the pulse with the given RC parameters
+            pass
+
         if i == 0:
-            pulses = convertPulse2ADC(data[i][0], data[i][1], 250, conversion=conversion)
+            pulses = singlePulse
         else:
-            pulses = np.concatenate([pulses, convertPulse2ADC(data[i][0], data[i][1], 100, conversion=conversion)])
+            pulses = np.concatenate([pulses, singlePulse])
         print(i)
-    plt.plot(pulses[0:200000])
-    plt.show()
+
     pulses.tofile(outfile)
 
 # conversion factor calculation 122 kev: 1.6e-19 * 122/0.05 = 500 ADC
 # Therefore 1e = 500 ADC * 0.05 energy per charge / 122
 
 
-def convertPulse2ADC(t, signal, fs=250, Ns=50000, prePulseTime=3, conversion=1, datatype='int16'):
+def convertPulse2ADC(t, signal, fs=250, Ns=50000, prePulseTime=100, conversion=1, datatype='uint16'):
 
     # Check to make sure there is data in the pulse
     if t.size <= 1:
@@ -110,7 +144,7 @@ def convertPulse2ADC(t, signal, fs=250, Ns=50000, prePulseTime=3, conversion=1, 
 
     # Create the pulse to pre and post append
     prePulse = np.zeros(int(prePulseTime/dt))
-    postPulse = np.min(signal)*np.ones(int((tTotal-t[-1]-prePulseTime)/dt -1))
+    postPulse = np.min(signal)*np.ones(int(round((tTotal-t.size*dt-prePulseTime)/dt)))
 
     # Pre and post append the pulse
     newSignal = np.concatenate([prePulse, signal, postPulse])
@@ -125,10 +159,10 @@ def convertPulse2ADC(t, signal, fs=250, Ns=50000, prePulseTime=3, conversion=1, 
     signalADC = np.interp(tADC, newTime, newSignal)
 
     # Return the ADC sampled pulses
-    return signalADC.astype(datatype)
+    return (signalADC).astype(datatype)
 
 if __name__ == '__main__':
     # testdata = readBatchFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\136keV\sio2', 'pixel_136kev_sio2_5M_pt\d+.npy')
     # fitLinearPiecewise(testdata[1][0], testdata[1][1], 2)
     #readBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\realData\Se_2500V_Co57_newfilter_Oct31_1.dat')
-    writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\122_sio_bin.dat',r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2', 'pixel_122kev_sio2_5M_pt\d+.npy')
+    writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\122_sio_noise_bin.dat',r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2', 'pixel_122kev_sio2_5M_pt\d+.npy', addNoise=True)
