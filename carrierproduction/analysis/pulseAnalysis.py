@@ -4,6 +4,7 @@ import regex as re
 import pwlf
 import matplotlib.pyplot as plt
 import ROOT as rt
+import scipy.signal as scp
 
 
 def readBatchFiles(filepath, pattern='*.npy'):
@@ -81,7 +82,7 @@ def fitLinearPiecewise(t, signal, nPieces=4):
     return fitObj, fitResult
 
 
-def writeBinFiles(outfile, infilepath, inpattern='*.npy', conversion=500*0.05/(122*1.6e-19), addNoise=False, filterPulse=False):
+def writeBinFiles(outfile, infilepath, inpattern='*.npy', conversion=500*0.05/(122*1.6e-19), fs=250., fcut=[5300.*1e-6, 530000.*1e-6], addNoise=False, filterPulse=False):
 
     data = readBatchFiles(infilepath, inpattern)
     Ns = 50000
@@ -98,7 +99,11 @@ def writeBinFiles(outfile, infilepath, inpattern='*.npy', conversion=500*0.05/(1
 
     # Iterate over each pulse in the data, convert to ADC unsigned 16bit int
     for i in range(data.shape[0]):
-        singlePulse = convertPulse2ADC(data[i][0], data[i][1], fs=250, conversion=conversion)
+        singlePulse = convertPulse2ADC(data[i][0], data[i][1], fs=fs, conversion=conversion)
+
+        if filterPulse:
+            # Filter the pulse with the given RC parameters
+            singlePulse = butter_bandpass_electronic_filter(singlePulse, lowcut=fcut[0], highcut=fcut[1], fs=fs)
 
         if addNoise:
             k = 0
@@ -106,25 +111,35 @@ def writeBinFiles(outfile, infilepath, inpattern='*.npy', conversion=500*0.05/(1
                 if k % nNoise == 0:
                     setree.GetEntry(entryCounter)
                     entryCounter = (entryCounter + 1) % nEntries
-                noise[k] = noiseLeaf.GetValue(k % nNoise)
 
-                # Iterate the counter
+                    # matches baseline noise between two events
+                    if k != 0:
+                        nMean = 10
+                        endPreviousSegmentMean = np.mean(noise[k-nMean:k])
+                        beginCurrentSegMean = 0
+                        for j in range(nMean):
+                            beginCurrentSegMean += noiseLeaf.GetValue(j % nNoise)
+                        beginCurrentSegMean /= nMean
+                        noiseOffset = endPreviousSegmentMean - beginCurrentSegMean
+                    else:
+                        noiseOffset = 0
+
+                noise[k] = noiseLeaf.GetValue(k % nNoise) + noiseOffset
+
+                # Increment the counter
                 k += 1
 
             # add noise to pulse
             try:
-                singlePulse += noise.astype('uint16')
+                singlePulse += noise
             except ValueError:
                 pass
 
-        if filterPulse:
-            # Filter the pulse with the given RC parameters
-            pass
 
         if i == 0:
-            pulses = singlePulse
+            pulses = singlePulse.astype('uint16')
         else:
-            pulses = np.concatenate([pulses, singlePulse])
+            pulses = np.concatenate([pulses, singlePulse.astype('uint16')])
         print(i)
 
     pulses.tofile(outfile)
@@ -133,7 +148,7 @@ def writeBinFiles(outfile, infilepath, inpattern='*.npy', conversion=500*0.05/(1
 # Therefore 1e = 500 ADC * 0.05 energy per charge / 122
 
 
-def convertPulse2ADC(t, signal, fs=250, Ns=50000, prePulseTime=100, conversion=1, datatype='uint16'):
+def convertPulse2ADC(t, signal, fs=250, Ns=50000, prePulseTime=100, conversion=1, datatype='int16'):
 
     # Check to make sure there is data in the pulse
     if t.size <= 1:
@@ -161,8 +176,25 @@ def convertPulse2ADC(t, signal, fs=250, Ns=50000, prePulseTime=100, conversion=1
     # Return the ADC sampled pulses
     return (signalADC).astype(datatype)
 
+def butter_bandpass_electronic(lowcut, highcut, fs, order=1):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = scp.butter(order, [low, high], btype='band')
+    return b, a
+
+def butter_bandpass_electronic_filter(data, lowcut, highcut, fs, order=1):
+    """ Applies a butterworth bandpass of order=order and lowcut and highcut cutoff frequencies to the daata
+    """
+
+    b, a = butter_bandpass_electronic(lowcut, highcut, fs, order=order)
+    # zi = scp.lfilter_zi(b, a)
+    y = scp.lfilter(b, a, data) #, zi=zi*data[0])
+    # y = scp.filtfilt(b, a, data)
+    return y
+
 if __name__ == '__main__':
     # testdata = readBatchFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\136keV\sio2', 'pixel_136kev_sio2_5M_pt\d+.npy')
     # fitLinearPiecewise(testdata[1][0], testdata[1][1], 2)
     #readBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\realData\Se_2500V_Co57_newfilter_Oct31_1.dat')
-    writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\122_sio_noise_bin.dat',r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2', 'pixel_122kev_sio2_5M_pt\d+.npy', addNoise=True)
+    writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\122_sio_noise_bin.dat',r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2', 'pixel_122kev_sio2_5M_pt\d+.npy', addNoise=True, filterPulse=True)
