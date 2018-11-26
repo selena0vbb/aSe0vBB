@@ -3,7 +3,7 @@
 #ifndef SimulationSettings_H
 #define SimulationSettings_H
 
-#include "G4SystemofUnits.hh"
+#include "G4SystemOfUnits.hh"
 
 #define OUTPUTDIR "C:\\Users\\alexp\\Documents\\UW\\Research\\Selenium\\aSe0vBB\\particle\\selenium_detector\\ouput\\"
 
