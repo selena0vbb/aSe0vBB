@@ -6,7 +6,7 @@
 #include "G4Run.hh"
 #include "G4RunManager.hh"
 
-#include "G4SystemofUnits.hh"
+#include "G4SystemOfUnits.hh"
 #include "Randomize.hh"
 
 #include "SimulationSettings.hh"

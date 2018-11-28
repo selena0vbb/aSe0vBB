@@ -6,8 +6,10 @@
 /event/verbose 0
 
 /gps/ene/mono 122 keV
-/gps/position 0 0 -11.1 mm
+/gps/position 19 0 -5.1 mm
 /gps/ang/type iso
-/analysis/setFileName ./output/122_keV_pixel_sio2_7k.root
-/run/beamOn 7000
+/gps/ang/mintheta 177.5 deg
+/gps/ang/rot1 5.1 0 19 
+/analysis/setFileName /home/apiers/data/particle/pixel_sio2_122kev_75degangle_200k.root
+/run/beamOn 200000
 
