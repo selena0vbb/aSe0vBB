@@ -1,29 +1,29 @@
 # Selenium e&m/particle simulation Config File
 
 # Noise models
-CARRIER_GENERATION_POISSON=0
+CARRIER_GENERATION_POISSON=1
 CARRIER_GENERATION_BINOMIAL=0
 DARK_CURRENT_BINOMIAL=0
-CARRIER_LIFETIME_GEOMETRIC=0
+CARRIER_LIFETIME_GEOMETRIC=1
 CARRIER_LIFETIME_POISSON=0
 
 # EM settings
 CHARGE_DIFFERENCE=0
-VOLTAGE_SWEEP_INDEX=0
+VOLTAGE_SWEEP_INDEX=4
 SCALE_WEIGHTED_PHI=0
 USE_BOUNDARY_LIMITS=1
 UNIT_CONVERSION_FACTOR=1.e3
 ELEMENTARY_CHARGE=1.6e-19
 ROUND_FINAL_WEIGHTED_PHI=1
-X_MIN=-1.5
-X_MAX=1.5
+X_MIN=-1.2
+X_MAX=1.2
 Y_MIN=-0.1
 Y_MAX=0.1
 
 # aSe Properties
 # Mu in mm^2/(V*us)
 MU_HOLES=14.4e-6
-MU_ELECTRONS=0.3e-6
+MU_ELECTRONS=0.5e-6
 # Tau in us
 TAU_HOLES=35.0
 TAU_ELECTRONS=440.0
@@ -33,9 +33,11 @@ DT_ELECTRONS=0.4
 
 # Simulation Settings
 PARALLEL_PROCESS=1
-NPROCESSORS=16.
-OUTPUT_DIR=/home/apiers/data/carrier
-OUTPUT_FILE=pixel_122keV_400k%i.npy
-EM_FILENAME=/home/apiers/data/em/pixel_detector_2mmdiam_200umAse.txt
-PARTICLE_FILENAME=/home/apiers/data/particle/122_keV_400k.root
+NPROCESSORS=24.
+NEVENTS_PER_FILE=1000
+OUTPUT_DIR=/home/apiers/data/carrier/co57
+OUTPUT_FILE=pixel_Co57_sio2_4000V_75deg_200k_pt%i.npy
+EM_FILENAME=/home/apiers/data/em/pixel_detector_2mmdiam_200umAse_FullE.txt
+PARTICLE_FILENAME=/home/apiers/data/particle/pixel_cobalt_75deg_200k.root
+
 

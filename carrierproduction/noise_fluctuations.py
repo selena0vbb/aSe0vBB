@@ -170,7 +170,7 @@ def noise_histogram_parallel():
 
     simObj = pd.CarrierSimulation(emfilename=emfilename, configfile=configfilename)
 
-    filesize=500
+    filesize=settings['NEVENTS_PER_FILE']
     outdir=settings['OUTPUT_DIR']
     outfilename=settings['OUTPUT_FILE']
 
