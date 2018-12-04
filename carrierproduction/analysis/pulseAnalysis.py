@@ -82,12 +82,19 @@ def fitLinearPiecewise(t, signal, nPieces=4):
     return fitObj, fitResult
 
 
-def writeBinFiles(outfile, infilepath, inpattern='*.npy', conversion=500*0.05/(122*1.6e-19), fs=250., fcut=[5300.*1e-6, 530000.*1e-6], addNoise=False, filterPulse=False):
+def writeBinFiles(outfile, infilepath, inpattern='*.npy', Ns=50000, conversion=500*0.05/(122*1.6e-19), fs=250., fcut=[5300.*1e-6, 530000.*1e-6], addNoise=False, filterPulse=False, minEnergy=20):
 
     data = readBatchFiles(infilepath, inpattern)
     Ns = 50000
     nNoise = 3000
     noise = np.zeros(Ns)
+    q = 1.6e-19
+    w = 0.05
+
+    # Create the numpy array to store all pulses in (save time over constantly appending a list)
+    N = data.shape[0]
+    pulses = np.zeros(N*Ns, 'uint16')
+    pulseCounter=0
 
     if addNoise:
         rootfile = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\Se_2000V_Co57_newfilter_Oct31_1_FFT_500mu_e.root"  # hardcoding rootfile for now
@@ -98,51 +105,51 @@ def writeBinFiles(outfile, infilepath, inpattern='*.npy', conversion=500*0.05/(1
         nEntries = setree.GetEntries()
 
     # Iterate over each pulse in the data, convert to ADC unsigned 16bit int
-    for i in range(data.shape[0]):
-        singlePulse = convertPulse2ADC(data[i][0], data[i][1], fs=fs, conversion=conversion)
+    for i in range(N):
 
-        if filterPulse:
-            # Filter the pulse with the given RC parameters
-            singlePulse = butter_bandpass_electronic_filter(singlePulse, lowcut=fcut[0], highcut=fcut[1], fs=fs)
+        if(data[i][1][-1] < -minEnergy*q/w):
 
-        if addNoise:
-            k = 0
-            while k < Ns:
-                if k % nNoise == 0:
-                    setree.GetEntry(entryCounter)
-                    entryCounter = (entryCounter + 1) % nEntries
+            singlePulse = convertPulse2ADC(data[i][0], data[i][1], fs=fs, Ns=Ns, conversion=conversion)
 
-                    # matches baseline noise between two events
-                    if k != 0:
-                        nMean = 10
-                        endPreviousSegmentMean = np.mean(noise[k-nMean:k])
-                        beginCurrentSegMean = 0
-                        for j in range(nMean):
-                            beginCurrentSegMean += noiseLeaf.GetValue(j % nNoise)
-                        beginCurrentSegMean /= nMean
-                        noiseOffset = endPreviousSegmentMean - beginCurrentSegMean
-                    else:
-                        noiseOffset = 0
+            if filterPulse:
+                # Filter the pulse with the given RC parameters
+                singlePulse = butter_bandpass_electronic_filter(singlePulse, lowcut=fcut[0], highcut=fcut[1], fs=fs)
 
-                noise[k] = noiseLeaf.GetValue(k % nNoise) + noiseOffset
+            if addNoise:
+                k = 0
+                while k < Ns:
+                    if k % nNoise == 0:
+                        setree.GetEntry(entryCounter)
+                        entryCounter = (entryCounter + 1) % nEntries
 
-                # Increment the counter
-                k += 1
+                        # matches baseline noise between two events
+                        if k != 0:
+                            nMean = 30
+                            endPreviousSegmentMean = np.mean(noise[k-nMean:k])
+                            beginCurrentSegMean = 0
+                            for j in range(nMean):
+                                beginCurrentSegMean += noiseLeaf.GetValue(j % nNoise)
+                            beginCurrentSegMean /= nMean
+                            noiseOffset = endPreviousSegmentMean - beginCurrentSegMean
+                        else:
+                            noiseOffset = 0
 
-            # add noise to pulse
-            try:
-                singlePulse += noise
-            except ValueError:
-                pass
+                    noise[k] = noiseLeaf.GetValue(k % nNoise) + noiseOffset
 
+                    # Increment the counter
+                    k += 1
 
-        if i == 0:
-            pulses = singlePulse.astype('uint16')
-        else:
-            pulses = np.concatenate([pulses, singlePulse.astype('uint16')])
-        print(i)
+                # add noise to pulse
+                try:
+                    singlePulse += noise
+                    pulses[pulseCounter*Ns:(pulseCounter+1)*Ns] = singlePulse.astype('uint16')
+                    pulseCounter += 1
+                except ValueError:
+                    pass
 
-    pulses.tofile(outfile)
+            print(i)
+
+    pulses[0:pulseCounter*Ns].tofile(outfile)
 
 # conversion factor calculation 122 kev: 1.6e-19 * 122/0.05 = 500 ADC
 # Therefore 1e = 500 ADC * 0.05 energy per charge / 122
@@ -194,7 +201,10 @@ def butter_bandpass_electronic_filter(data, lowcut, highcut, fs, order=1):
     return y
 
 if __name__ == '__main__':
-    # testdata = readBatchFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\136keV\sio2', 'pixel_136kev_sio2_5M_pt\d+.npy')
+    # testdata = readBatchFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield', 'pixel_122kev_sio2_4000V_5M_pt\d+.npy')
+    # energy = getEnergySpectrum(testdata)
+    # plt.hist(energy, bins=np.arange(0,140))
+    # plt.show()
     # fitLinearPiecewise(testdata[1][0], testdata[1][1], 2)
     #readBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\realData\Se_2500V_Co57_newfilter_Oct31_1.dat')
-    writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\122_sio_noise_bin.dat',r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2', 'pixel_122kev_sio2_5M_pt\d+.npy', addNoise=True, filterPulse=True)
+    writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\136keV\sio2\Efield\136_4000V_noise_bin.dat',r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\136keV\sio2\Efield', 'pixel_136kev_sio2_4000V_5M_pt\d+.npy', addNoise=True, filterPulse=True)
