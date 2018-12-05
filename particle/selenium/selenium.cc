@@ -14,14 +14,10 @@
 #include "G4UIcommand.hh"
 #include "Randomize.hh"
 
-
-
 #include "SimulationSettings.hh"
-
-
-
 #include "time.h"
 
+using namespace std;
 
 int main(int argc, char** argv)
 {
@@ -67,9 +63,18 @@ int main(int argc, char** argv)
 
 	// Process macro or start interactive.
 	// For now only have interactive for simplicity
-	UImanager->ApplyCommand("/control/execute init_vis.mac");
-	ui->SessionStart();
-	delete ui;
+	UImanager->ApplyCommand("/control/macroPath ./");
+	if(argc==1){
+		ui->SessionStart();
+		delete ui;
+	}else if(argc==2){
+		char *macroCommand = new char[100];
+		sprintf(macroCommand, "/control/execute %s", argv[1]);
+		cout << "Running macro: " << macroCommand << endl;
+		UImanager->ApplyCommand(macroCommand);
+	}else{
+		cout << "Invalid number of inputs" << endl;
+	}
 
 	// Job Termination
 	delete visManager;

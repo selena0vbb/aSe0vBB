@@ -73,11 +73,11 @@ void SeleniumEventAction::EndOfEventAction(const G4Event* event)
 			G4int eventID = event->GetEventID();
 			// Get number of hits. Iterate over all and add to Ntuple
 			G4int numberOfHits = hc->GetSize();
-			G4cout << numberOfHits << G4endl;
+
+			if(numberOfHits > 0)G4cout << numberOfHits << G4endl;
 			for( int i = 0; i < numberOfHits; i++)
 			{
 				hit = (*hc)[i];
-				G4cout << eventID;
 				analysisManager->FillNtupleIColumn(1, 0, eventID);
 				analysisManager->FillNtupleIColumn(1, 1, hit->GetTrackID());
 				analysisManager->FillNtupleIColumn(1, 2, hit->GetParentID());
