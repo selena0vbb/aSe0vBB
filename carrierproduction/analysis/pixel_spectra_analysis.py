@@ -220,6 +220,47 @@ def noise_spectrum():
     plt.show()
 
 
+def compare_angled_spectrum(logplot=False):
+    """ Analysis comparing the energy spectrum between normally incident particle source and at an oblique angle
+    """
+    normaldata = pa.readBatchFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield', 'pixel_122kev_sio2_4000V_5M_pt\d+.npy')
+    obliquedata = pa.readBatchFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield', 'pixel_122kev_sio2_4000V_75deg_200k_pt\d+.npy')
+
+    # get spectrums
+    normalSpectrum = pa.getEnergySpectrum(normaldata)
+    obliqueSpectrum = pa.getEnergySpectrum(obliquedata)
+    bins = np.arange(0,140)
+
+    # Plot spectrum with redsidue
+    f, (ax0, ax1) = plt.subplots(2, 1, sharex=True, gridspec_kw={'height_ratios': [3, 1]})
+
+    # Plot spectra
+    normhist, binx, _ = ax0.hist(np.array(normalSpectrum), bins=bins, density=True, histtype='step', label='Normal Incidence', linewidth=2, color='blue')
+    obliquehist, _, _ =ax0.hist(np.array(obliqueSpectrum), bins=bins, density=True, histtype='step', label='Oblique Incidence', linewidth=2, color='red', log=logplot)
+
+    ax0.set_ylabel('Normalized Spectra')
+    ax0.set_xlabel('Energy (keV)', fontsize=12)
+    ax0.set_title('Pixel Detector Spectra with Different Angle of Incidence', fontsize=14)
+
+    # Calculating error bars
+    xaxis = bins[0:-1]+np.diff(bins)
+    errNormal = np.sqrt(normhist / len(normalSpectrum))
+    errOblique = np.sqrt(obliquehist / len(obliqueSpectrum))
+    ax0.fill_between(xaxis, normhist-errNormal, normhist+errNormal, color='blue', alpha=0.5, label='Normal $\sigma$')
+    ax0.fill_between(xaxis, obliquehist-errOblique, obliquehist+errOblique, color='red', alpha=0.5, label='Oblique $\sigma$')
+
+    ax0.legend(loc='upper left')
+
+    # Plot residual
+    ax1.plot(xaxis, normhist-obliquehist, linewidth=3, color='black',label='residual')
+    ax1.fill_between(xaxis, normhist-obliquehist-(errNormal+errOblique), normhist-obliquehist+(errNormal+errOblique), color='black', alpha=0.5, label='Residual $\sigma$')
+    ax1.set_title('Difference between Spectra', fontsize=14)
+    ax1.set_xlabel('Energy (keV)', fontsize=12)
+    ax1.set_ylabel('Residual')
+    ax1.legend(loc='lower left')
+    f.tight_layout()
+    plt.show()
+
 def plot_noise_vs_no_noise():
 
     data = pa.readBatchFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2', 'pixel_122kev_sio2_5M_pt\d+.npy')
@@ -240,11 +281,14 @@ def plot_noise_vs_no_noise():
 
     ax2.set_xlabel('Time ($\mu s$)', fontsize=14)
     ax2.set_title('Pulses w/ Noise', fontsize=14)
+
+
 if __name__ == '__main__':
     # higher_statistics_spectra()
     # new_pixel_particle_spectra()
     # compare_partial_particle_tracks()
     # data = add_noise_to_pulses('test', 'test')
-    noise_spectrum()
+    # noise_spectrum()
     # plot_noise_vs_no_noise()
+    compare_angled_spectrum(False)
     plt.show()
