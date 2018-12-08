@@ -445,7 +445,8 @@ class CarrierSimulation(object):
 		muHole, muElectron = self.settings['MU_HOLES'], self.settings['MU_ELECTRONS']# mm^2/(V*us)
 		maxtime = 0
 		allInduced = []
-
+		elecAInduced = []
+		elecBInduced = []
 		# iterate over all the grid points of electron hole pairs
 		for i in range(binx.shape[0]):
 			for j in range(biny.shape[0]):
@@ -480,6 +481,11 @@ class CarrierSimulation(object):
 						# append to  list of induced charge
 						allInduced.append(indChargeHoles)
 						allInduced.append(indChargeElectrons)
+						if self.settings['SAVE_PARTIAL_PULSES']:
+							elecAInduced.append(qAHoles)
+							elecAInduced.append(qAElectrons)
+							elecBInduced.append(self.scale * qBHoles)
+							elecBInduced.append(self.scale * qBElectrons)
 
 					else:
 						# Compute induced charge on a single electrode
@@ -493,6 +499,7 @@ class CarrierSimulation(object):
 		qIndHole = np.zeros(timeHoles.shape)
 		qIndElectron = np.zeros(timeElectrons.shape)
 
+
 		# Iterate over the induced charge by each grid contribution and add them to the total charge induced on the electrode
 		for indx, charge in enumerate(allInduced):
 			if indx % 2 == 0:
@@ -502,9 +509,32 @@ class CarrierSimulation(object):
 			else:
 				qIndElectron[:len(charge)] += charge
 				qIndElectron[len(charge):] += charge[-1]
+		
+		# Create total induced charge for electrodes A and B (if setting is selected)
+		if self.setting['SAVE_PARTIAL_PULSES'] and self.setting['CHARGE_DIFFERENCE']:
+			qIndHoleA = np.zeros(timeHoles.shape)
+			qIndElectronA = np.zeros(timeElectrons.shape)
+			qIndHoleB = np.zeros(timeHoles.shape)
+			qIndElectronB = np.zeros(timeElectrons.shape)
+			
+			for partialIndx in range(len(elecAInduced)):
+				if partialIndx % 2 == 0:
+					qIndHoleA[:len(elecAInduced[partialIndx])] += elecAInduced[partialIndx]
+					qIndHoleA[len(elecAInduced[partialIndx]):] += elecAInduced[partialIndx][-1]
+					qIndHoleB[:len(elecBInduced[partialIndx])] += elecBInduced[partialIndx]
+					qIndHoleB[len(elecBInduced[partialIndx]):] += elecBInduced[partialIndx][-1]
+				else:
+					qIndElectronA[:len(elecAInduced[partialIndx])] += elecAInduced[partialIndx]	
+					qIndElectronA[len(elecAInduced[partialIndx]):] += elecAInduced[partialIndx][-1]	
+					qIndElectronB[:len(elecBInduced[partialIndx])] += elecBInduced[partialIndx]	
+					qIndElectronB[len(elecBInduced[partialIndx]):] += elecBInduced[partialIndx][-1]
 
+			qInducedA = qIndHoleA + np.interp(timeHoles, timeElectrons, qIndElectronA)
+			qInducedB = qIndHoleB + np.interp(timeHoles, timeElectrons, qIndElectronB)
+
+			return timeHoles, qInduced, qInducedA, qInducedB
+	
 		# Interpolate the Electron induced charge to match the holes so we can add them together
-
 		qInduced = qIndHole + np.interp(timeHoles, timeElectrons, qIndElectron)
 
 		return timeHoles, qInduced
