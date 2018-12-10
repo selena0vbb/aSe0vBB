@@ -82,12 +82,22 @@ def fitLinearPiecewise(t, signal, nPieces=4):
     return fitObj, fitResult
 
 
-def writeBinFiles(outfile, infilepath, inpattern='*.npy', conversion=500*0.05/(122*1.6e-19), fs=250., fcut=[5300.*1e-6, 530000.*1e-6], addNoise=False, filterPulse=False):
+def writeBinFiles(outfile, infilepath, inpattern='*.npy', Ns=50000, conversion=800*0.05/(122*1.6e-19), fs=250., fcut=[5300.*1e-6, 530000.*1e-6], addNoise=False, filterPulse=False, minEnergy=20):
 
     data = readBatchFiles(infilepath, inpattern)
     Ns = 50000
     nNoise = 3000
     noise = np.zeros(Ns)
+    q = 1.6e-19
+    w = 0.05
+    N = data.shape[0]
+
+    # parameters for chunking data into smaller files
+    numberOfPulsesPerFile = 2500
+    maxNumberOfSamples = numberOfPulsesPerFile*Ns
+    totalNumberOfSamples = N*Ns
+    numberOfIterations = int(np.ceil(float(N)/numberOfPulsesPerFile))
+    filesWritten = []
 
     if addNoise:
         rootfile = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\Se_2000V_Co57_newfilter_Oct31_1_FFT_500mu_e.root"  # hardcoding rootfile for now
@@ -97,55 +107,124 @@ def writeBinFiles(outfile, infilepath, inpattern='*.npy', conversion=500*0.05/(1
         entryCounter = 0
         nEntries = setree.GetEntries()
 
-    # Iterate over each pulse in the data, convert to ADC unsigned 16bit int
-    for i in range(data.shape[0]):
-        singlePulse = convertPulse2ADC(data[i][0], data[i][1], fs=fs, conversion=conversion)
+    # Iterate over the number of chunked files we need to make
+    for j in range(numberOfIterations):
+        splitfilename = outfile.split('.')
+        chunkOutfile = splitfilename[0] + '%i.'%j + splitfilename[1]
+        filesWritten.append(chunkOutfile)
+        print(filesWritten)
+        # Create the numpy array to store all pulses in (save time over constantly appending a list)
+        pulses = np.zeros(maxNumberOfSamples, 'uint16')
+        pulseCounter = 0
 
-        if filterPulse:
-            # Filter the pulse with the given RC parameters
-            singlePulse = butter_bandpass_electronic_filter(singlePulse, lowcut=fcut[0], highcut=fcut[1], fs=fs)
+        # Iterate over each pulse in the data, convert to ADC unsigned 16bit int
+        print(min(numberOfPulsesPerFile, N - numberOfPulsesPerFile*j))
+        for i in range(min(numberOfPulsesPerFile, N - numberOfPulsesPerFile*j)):
+            cnt = numberOfPulsesPerFile*j + i
+            if(data[cnt][1][-1] < -minEnergy*q/w):
 
-        if addNoise:
-            k = 0
-            while k < Ns:
-                if k % nNoise == 0:
-                    setree.GetEntry(entryCounter)
-                    entryCounter = (entryCounter + 1) % nEntries
+                singlePulse = convertPulse2ADC(data[cnt][0], data[cnt][1], fs=fs, Ns=Ns, conversion=conversion)
 
-                    # matches baseline noise between two events
-                    if k != 0:
-                        nMean = 10
-                        endPreviousSegmentMean = np.mean(noise[k-nMean:k])
-                        beginCurrentSegMean = 0
-                        for j in range(nMean):
-                            beginCurrentSegMean += noiseLeaf.GetValue(j % nNoise)
-                        beginCurrentSegMean /= nMean
-                        noiseOffset = endPreviousSegmentMean - beginCurrentSegMean
-                    else:
-                        noiseOffset = 0
+                if filterPulse:
+                    # Filter the pulse with the given RC parameters
+                    singlePulse = butter_bandpass_electronic_filter(singlePulse, lowcut=fcut[0], highcut=fcut[1], fs=fs)
 
-                noise[k] = noiseLeaf.GetValue(k % nNoise) + noiseOffset
+                if addNoise:
+                    k = 0
+                    while k < Ns:
+                        if k % nNoise == 0:
+                            setree.GetEntry(entryCounter)
+                            entryCounter = (entryCounter + 1) % nEntries
 
-                # Increment the counter
-                k += 1
+                            # matches baseline noise between two events
+                            if k != 0:
+                                nMean = 30
+                                endPreviousSegmentMean = np.mean(noise[k-nMean:k])
+                                beginCurrentSegMean = 0
+                                for m in range(nMean):
+                                    beginCurrentSegMean += noiseLeaf.GetValue(m % nNoise)
+                                beginCurrentSegMean /= nMean
+                                noiseOffset = endPreviousSegmentMean - beginCurrentSegMean
+                            else:
+                                noiseOffset = 0
 
-            # add noise to pulse
-            try:
-                singlePulse += noise
-            except ValueError:
-                pass
+                        noise[k] = noiseLeaf.GetValue(k % nNoise) + noiseOffset
 
+                        # Increment the counter
+                        k += 1
 
-        if i == 0:
-            pulses = singlePulse.astype('uint16')
-        else:
-            pulses = np.concatenate([pulses, singlePulse.astype('uint16')])
-        print(i)
+                    # add noise to pulse
+                    try:
+                        singlePulse += noise
+                        pulses[pulseCounter*Ns:(pulseCounter+1)*Ns] = singlePulse.astype('uint16')
+                        pulseCounter += 1
+                    except ValueError:
+                        pass
 
-    pulses.tofile(outfile)
+                print(i)
+
+        pulses[0:pulseCounter*Ns].tofile(chunkOutfile)
+
+    # read the binary files using file operations and keep writing to the same file
+    # combineDatFiles(filesWritten, outfile)
 
 # conversion factor calculation 122 kev: 1.6e-19 * 122/0.05 = 500 ADC
 # Therefore 1e = 500 ADC * 0.05 energy per charge / 122
+
+def combineDatFiles(filelist, outfile):
+
+    finalFile = open(outfile, 'w')
+
+    for file in filelist:
+        partialFile = open(file, 'rb')
+        data = partialFile.read()
+        finalFile.write(data)
+        partialFile.close()
+
+    finalFile.close()
+
+def generateRootFile(path, pattern, outputfile):
+
+    data = readBatchFiles(path, pattern)
+
+    # Iterate over data to get depth
+    depth = []
+    energy = []
+    q, w = (1.6e-19, 0.05)
+    print(data.shape[0])
+    for i in range(5):#data.shape[0]):
+        print(i)
+        time = data[i][0]
+        pulse = data[i][1]
+        if data[i][0].shape == (1,):
+            pass
+        else:
+            fitobj, result = fitLinearPiecewise(time, pulse, 2)
+            depth.append(fitobj.predict([result[1]])[0])
+            energy.append(abs(data[i][1][-1] / q * w))
+
+    h = rt.TH1D("eneSim", "Simulation Spectra", 140, 0, 140)
+    rt.gROOT.ProcessLine("struct simdata{ \
+             Int_t depthT; \
+             Int_t energyT; \
+             }; ");
+    simdata = rt.simdata()
+    tree = rt.TTree("trueData", "trueData")
+    tree.Branch('depthT', rt.AddressOf(simdata, 'depthT'))
+    tree.Branch('energyT', rt.AddressOf(simdata, 'energyT'))
+
+    for i in range(len(energy)):
+        h.Fill(energy[i])
+        simdata.depthT = depth[i]
+        simdata.energyT = energy[i]
+
+        tree.Fill()
+
+    tree.Print()
+    tf = rt.TFile(outputfile, "RECREATE")
+    h.Write()
+    tree.Write()
+    tf.Close()
 
 
 def convertPulse2ADC(t, signal, fs=250, Ns=50000, prePulseTime=100, conversion=1, datatype='int16'):
@@ -194,7 +273,12 @@ def butter_bandpass_electronic_filter(data, lowcut, highcut, fs, order=1):
     return y
 
 if __name__ == '__main__':
-    # testdata = readBatchFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\136keV\sio2', 'pixel_136kev_sio2_5M_pt\d+.npy')
-    # fitLinearPiecewise(testdata[1][0], testdata[1][1], 2)
+    testdata = readBatchFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield', 'pixel_122kev_sio2_4000V_5M_pt\d+.npy')
+    # energy = getEnergySpectrum(testdata)
+    # plt.hist(energy, bins=np.arange(0,140))
+    # plt.show()
+    # fitLinearPiecewise(testdata[4][0], testdata[4][1], 2)
     #readBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\realData\Se_2500V_Co57_newfilter_Oct31_1.dat')
-    writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\122_sio_noise_bin.dat',r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2', 'pixel_122kev_sio2_5M_pt\d+.npy', addNoise=True, filterPulse=True)
+    #writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\co57\co57_4000V_75deg_bin.dat',r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\co57', 'pixel_Co57_sio2_4000V_75deg_200k_pt\d+.npy', addNoise=True, filterPulse=True)
+    # writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield\122_4000V_bin.dat', r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield', 'pixel_122kev_sio2_4000V_5M_pt\d+.npy', addNoise=True, filterPulse=True)
+    generateRootFile(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield',r'pixel_122kev_sio2_4000V_5M_pt\d+.npy', './pixel_122kev_sio2_4000V_sim_results.root')
