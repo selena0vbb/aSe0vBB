@@ -240,6 +240,7 @@ class gEventCollection(object):
 			if eventCounterRange != None and eventCounter >= eventCounterRange[1]:
 				break
 
+		self.totalNEvents = len(self.collection)
 
 	def printInfo(self):
 		""" Prints information regarding the collection of events"""
@@ -259,6 +260,75 @@ class gEventCollection(object):
 			print("Could not find a event matching the ID %i" % eventID)
 
 		return foundEvent
+
+	def plotAngularDistribution1D(self, nEvents=None, style='polar', showPlot=True):
+		np.seterr(all='raise')
+		if nEvents == None:
+			nEvents = self.totalNEvents
+
+		thetalist = []
+		# Iterate over the prescirbed number of events
+		for i in range(nEvents):
+			# print(i)
+			event = self.collection[i]
+			flatdata = event.flattenEvent()
+
+			# Need to 2d histogram
+			xbins = np.arange(-2000, 2000, 4)
+			zbins = np.arange(-100, 100)
+			trackHist, _, _ = np.histogram2d(np.array(flatdata['x'])*1000, np.array(flatdata['z'])*1000, bins=[xbins, zbins], weights=flatdata['energy'])
+
+			# Find non zero elements of the histogram. Find associated x and z components
+			xindx, zindx = np.nonzero(trackHist)
+
+			if xindx.size == 0 or zindx.size == 0 or np.sum(flatdata['energy']) < 100:
+				continue
+			else:
+				# perform a linear fit of the x and z data
+				try:
+					# Filter out outliers (k shell xray emission)
+					xmask = np.abs(xindx - np.mean(xindx)) < 2.5*np.std(xindx)
+					zmask = np.abs(zindx - np.mean(zindx)) < 2.5*np.std(zindx)
+					fmask = np.logical_and(zmask, xmask)
+					xdata = xbins[xindx[fmask]]
+					zdata = zbins[zindx[fmask]]
+					energyWeight = trackHist[(xindx[fmask], zindx[fmask])]
+					slope, intercept = np.polyfit(zdata, xdata, 1)#, w=energyWeight)
+					plt.plot(zdata, xdata, '*')
+					plt.plot(zdata, zdata*slope+intercept)
+					print(slope)
+					# convert slope to theta
+					theta = np.arctan(slope) + 3*np.pi/2
+					# add to array
+					thetalist.append(theta)
+				except:
+					pass
+
+		plt.show()
+
+		# histogram the theta data
+		nbins = 100
+		thetaBins = np.linspace(0, 2*np.pi, nbins)
+		thetaAxis = thetaBins[1:] - np.diff(thetaBins)[0]
+		thetaHist, _ = np.histogram(thetalist, bins=thetaBins)
+		if style == 'polar':
+			ax = plt.subplot(111, projection='polar')
+			ax.bar(thetaAxis, thetaHist, width=2*np.pi/nbins, bottom=0.0)
+		elif style == 'xy':
+			fig, ax = plt.subplots()
+			ax.hist(thetalist, bins=thetaBins, linewidth=2, histtype='step')
+		else:
+			print('Invalid plotting style')
+			ax = None
+
+		if showPlot:
+			plt.show()
+
+		return thetaBins, thetaHist, ax
+
+
+
+
 
 class CarrierSimulation(object):
 	"""Wrapper class for all the functions and data surrounding the charge carrier simulation. All info is housed in one class for efficiency purposes"""
@@ -464,7 +534,7 @@ class CarrierSimulation(object):
 					qHoleArray, qElectronArray = self.chargeArray(nehpf[i,j], pathHoles.shape[0], pathElectrons.shape[0])
 
 					# Keep the longest time for reference in
-					try:					
+					try:
 						if np.max([pathHoles[-1,2], pathElectrons[-1,2]]) > maxtime:
 							maxtime = np.max([pathHoles[-1,2], pathElectrons[-1,2]])
 					except:
@@ -650,33 +720,35 @@ def numberOfEvents(rootFile, key="EneDepSe"):
 
 if __name__ == '__main__':
 	# used for debuggin information. If the particledata.py file is run this segment of the code will run
-	filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"
+	filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\pixel_sio2_122kev_0degangle_200k.root"
+	filenameAngle =r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\pixel_sio2_122kev_75degangle_200k.root"
 	emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt"
 	configfilename = r"./config.txt"
 
 	settings = sc.readConfigFile(configfilename)
 
 	# Create new collection
-	newCollection = gEventCollection(filename)
+	newCollection = gEventCollection(filename, [0, 150])
 	newCollection.printInfo()
 
+	newCollection.plotAngularDistribution1D()
 	# Create simulation object
-	simObject = CarrierSimulation(emfilename=emfilename, eventCollection=newCollection, configfile=configfilename)
+	# simObject = CarrierSimulation(emfilename=emfilename, eventCollection=newCollection, configfile=configfilename)
 
 
-	print('running simulations')
-	# Plot results
-	fig, ax = plt.subplots()
-	indx = [125, 129, 130, 131, 132]
-	results = simObject.processMultipleEvents(indx, processes=1)
-	for i in indx:
-		print(i)
-		t, q = simObject.computeChargeSignal(i)
-		ax.plot(t, -q/1.6e-19*0.05, linewidth=3, label='%i'%i)
-	ax.set_xlabel('Time ($\mu) s$', fontsize=14)
-	ax.set_ylabel('Charge (keV)', fontsize=14)
-	ax.legend()
-	plt.show()
+	# print('running simulations')
+	# # Plot results
+	# fig, ax = plt.subplots()
+	# indx = [125, 129, 130, 131, 132]
+	# results = simObject.processMultipleEvents(indx, processes=1)
+	# for i in indx:
+	# 	print(i)
+	# 	t, q = simObject.computeChargeSignal(i)
+	# 	ax.plot(t, -q/1.6e-19*0.05, linewidth=3, label='%i'%i)
+	# ax.set_xlabel('Time ($\mu) s$', fontsize=14)
+	# ax.set_ylabel('Charge (keV)', fontsize=14)
+	# ax.legend()
+	# plt.show()
 
 
 
