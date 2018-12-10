@@ -183,6 +183,50 @@ def combineDatFiles(filelist, outfile):
 
     finalFile.close()
 
+def generateRootFile(path, pattern, outputfile):
+
+    data = readBatchFiles(path, pattern)
+
+    # Iterate over data to get depth
+    depth = []
+    energy = []
+    q, w = (1.6e-19, 0.05)
+    print(data.shape[0])
+    for i in range(5):#data.shape[0]):
+        print(i)
+        time = data[i][0]
+        pulse = data[i][1]
+        if data[i][0].shape == (1,):
+            pass
+        else:
+            fitobj, result = fitLinearPiecewise(time, pulse, 2)
+            depth.append(fitobj.predict([result[1]])[0])
+            energy.append(abs(data[i][1][-1] / q * w))
+
+    h = rt.TH1D("eneSim", "Simulation Spectra", 140, 0, 140)
+    rt.gROOT.ProcessLine("struct simdata{ \
+             Int_t depthT; \
+             Int_t energyT; \
+             }; ");
+    simdata = rt.simdata()
+    tree = rt.TTree("trueData", "trueData")
+    tree.Branch('depthT', rt.AddressOf(simdata, 'depthT'))
+    tree.Branch('energyT', rt.AddressOf(simdata, 'energyT'))
+
+    for i in range(len(energy)):
+        h.Fill(energy[i])
+        simdata.depthT = depth[i]
+        simdata.energyT = energy[i]
+
+        tree.Fill()
+
+    tree.Print()
+    tf = rt.TFile(outputfile, "RECREATE")
+    h.Write()
+    tree.Write()
+    tf.Close()
+
+
 def convertPulse2ADC(t, signal, fs=250, Ns=50000, prePulseTime=100, conversion=1, datatype='int16'):
 
     # Check to make sure there is data in the pulse
@@ -229,11 +273,12 @@ def butter_bandpass_electronic_filter(data, lowcut, highcut, fs, order=1):
     return y
 
 if __name__ == '__main__':
-    # testdata = readBatchFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield', 'pixel_122kev_sio2_4000V_5M_pt\d+.npy')
+    testdata = readBatchFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield', 'pixel_122kev_sio2_4000V_5M_pt\d+.npy')
     # energy = getEnergySpectrum(testdata)
     # plt.hist(energy, bins=np.arange(0,140))
     # plt.show()
-    # fitLinearPiecewise(testdata[1][0], testdata[1][1], 2)
+    # fitLinearPiecewise(testdata[4][0], testdata[4][1], 2)
     #readBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\realData\Se_2500V_Co57_newfilter_Oct31_1.dat')
     #writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\co57\co57_4000V_75deg_bin.dat',r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\co57', 'pixel_Co57_sio2_4000V_75deg_200k_pt\d+.npy', addNoise=True, filterPulse=True)
-    writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield\122_4000V_bin.dat', r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield', 'pixel_122kev_sio2_4000V_5M_pt\d+.npy', addNoise=True, filterPulse=True)
+    # writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield\122_4000V_bin.dat', r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield', 'pixel_122kev_sio2_4000V_5M_pt\d+.npy', addNoise=True, filterPulse=True)
+    generateRootFile(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield',r'pixel_122kev_sio2_4000V_5M_pt\d+.npy', './pixel_122kev_sio2_4000V_sim_results.root')
