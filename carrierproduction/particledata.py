@@ -510,8 +510,11 @@ class CarrierSimulation(object):
 				qIndElectron[:len(charge)] += charge
 				qIndElectron[len(charge):] += charge[-1]
 		
+		# Interpolate the Electron induced charge to match the holes so we can add them together
+		qInduced = qIndHole + np.interp(timeHoles, timeElectrons, qIndElectron)
+		
 		# Create total induced charge for electrodes A and B (if setting is selected)
-		if self.setting['SAVE_PARTIAL_PULSES'] and self.setting['CHARGE_DIFFERENCE']:
+		if self.settings['SAVE_PARTIAL_PULSES'] and self.settings['CHARGE_DIFFERENCE']:
 			qIndHoleA = np.zeros(timeHoles.shape)
 			qIndElectronA = np.zeros(timeElectrons.shape)
 			qIndHoleB = np.zeros(timeHoles.shape)
@@ -534,9 +537,6 @@ class CarrierSimulation(object):
 
 			return timeHoles, qInduced, qInducedA, qInducedB
 	
-		# Interpolate the Electron induced charge to match the holes so we can add them together
-		qInduced = qIndHole + np.interp(timeHoles, timeElectrons, qIndElectron)
-
 		return timeHoles, qInduced
 
 	def processMultipleEvents(self, eventIdxs, processes=1, chunksize=8):

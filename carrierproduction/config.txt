@@ -15,7 +15,7 @@ USE_BOUNDARY_LIMITS=1
 UNIT_CONVERSION_FACTOR=1.e3
 ELEMENTARY_CHARGE=1.6e-19
 ROUND_FINAL_WEIGHTED_PHI=1
-SAVE_PARTIAL_PULSES=1
+SAVE_PARTIAL_PULSES=0
 X_MIN=-1.2
 X_MAX=1.2
 Y_MIN=-0.1
@@ -29,16 +29,15 @@ MU_ELECTRONS=0.5e-6
 TAU_HOLES=35.0
 TAU_ELECTRONS=440.0
 # dt for motion is us
-DT_HOLES=0.04
-DT_ELECTRONS=0.4
+DT_HOLES=0.02
+DT_ELECTRONS=0.2
 
 # Simulation Settings
 PARALLEL_PROCESS=1
 NPROCESSORS=24.
-NEVENTS_PER_FILE=1000
-OUTPUT_DIR=/home/apiers/data/carrier/co57
-OUTPUT_FILE=pixel_Co57_sio2_4000V_75deg_200k_pt%i.npy
+NEVENTS_PER_FILE=150
+OUTPUT_DIR=/home/apiers/data/carrier/122keV/sio2/
+OUTPUT_FILE=pixel_122kev_sio2_4000V_0deg_pt%i.npy
 EM_FILENAME=/home/apiers/data/em/pixel_detector_2mmdiam_200umAse_FullE.txt
-PARTICLE_FILENAME=/home/apiers/data/particle/pixel_cobalt_75deg_200k.root
-
+PARTICLE_FILENAME=/home/apiers/data/particle/pixel_sio2_122kev_0degangle_200k.root
 
