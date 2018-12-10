@@ -99,10 +99,42 @@ void createCobaltTree(int N, const char* file122, const char* file136, const cha
 
 	coTree->SetName("aSeData");
 
+	// Create histogram to store the energy spectrum
+	int eventID = -1;
+	int currentID;
+	double energy;
+	double totalenergy=0;
+	coTree->SetBranchAddress("EventID", &currentID);
+	coTree->SetBranchAddress("energy", &energy);
+	TH1D * hSpectrum = new TH1D("EneDepSe", "EneDepSe", 150, 0, 150);
+	for(int i=0; i<coTree->GetEntries(); i++){
+		
+		coTree->GetEntry(i);
+		//cout << currentID << endl;
+		if(currentID != eventID){
+			if(eventID != -1){
+				hSpectrum->Fill(totalenergy*1000);
+				totalenergy=0;
+			}
+			eventID = currentID;
+		}
+		totalenergy += energy;
+	}
 	// Create a new file and write the data
 	coTree->Write();
+	hSpectrum->Write();
 	outfile->Close();
 
 	return;
 
+}
+
+void cobaltWrapper(){
+
+	const char * f122 = "/home/apiers/data/particle/pixel_sio2_122kev_75degangle_200k.root";
+	const char * f136 = "/home/apiers/data/particle/pixel_sio2_136kev_75degangle_200k.root";
+	const char * f14 = "/home/apiers/data/particle/pixel_sio2_14kev_75degangle_200k.root";
+	int N = 200000;
+	createCobaltTree(N, f122, f136, f14, "/home/apiers/data/particle/pixel_cobalt_75deg_200k.root");
+	return;
 }
