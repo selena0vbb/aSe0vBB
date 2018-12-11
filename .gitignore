@@ -4,6 +4,7 @@ selenv/
 # particle simulation build files
 particle/selenium-build/
 CMakeFiles/
+build/
 # .pyc files
 *.pyc
 
