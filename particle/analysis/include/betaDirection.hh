@@ -12,7 +12,7 @@
 #include "TVector3.h"
 #include "seleniumConstants.hh"
 
-TTree * createEventTree(TTree *tree);
+TTree * createEventTree(TTree *tree, const char *outfile);
 
 TH2D * plotBetaDirection(TTree *eventTree, double emin);
 

@@ -10,7 +10,7 @@
 	TTree *t0 = (TTree*)f0->Get("aSeData");
 	TTree *t75 = (TTree*)f75->Get("aSeData");
 
-	TTree *t0event = createEventTree(t0);
-	TTree *t75event = createEventTree(t75); 
+	TTree *t0event = createEventTree(t0, "~/aSe0vBB/particle/analysis/output/0degEventTree");
+	TTree *t75event = createEventTree(t75, "~/aSe0vBB/particle/analysis/output/75degEventTree"); 
 
 }

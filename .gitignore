@@ -5,6 +5,7 @@ selenv/
 particle/selenium-build/
 CMakeFiles/
 build/
+output/
 # .pyc files
 *.pyc
 
