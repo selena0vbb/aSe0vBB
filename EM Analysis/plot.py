@@ -270,14 +270,13 @@ def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear', roundFinal
 	# ensure the last value of qi is not nan
 	zFinal = path[-1,1]
 	count = 0
+	sign = np.sign(np.mean(np.diff(path[:,1])))
 	maxCount = 10
-	while np.isnan(qi[-1]):
-		
+	while np.isnan(qi[-1]):		
 		zFinal -= sign*stepback
 		if count == maxCount:
 			return np.zeros(1)
 		
-		zFinal -= np.sign(np.mean(np.diff(path[:,1])))*stepback
 		if roundFinalVal:
 			qi[-1] = -q[-1]*round(wPInter(path[-1,0], zFinal)[0])
 		else:
