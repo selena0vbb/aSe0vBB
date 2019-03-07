@@ -184,6 +184,11 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 		x = xNext
 		y = yNext
 		t = t + dt
+	
+	if np.isnan(x):
+		x = xt[-1][0]
+	if np.isnan(y):
+		y = xt[-1][1]
 
 	# Add value at the limit
 	if x > xmax:
@@ -242,7 +247,7 @@ def interpEField2D(x, y, E, method='linear'):
 
 	return EInterp
 
-def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear', roundFinalVal=False):
+def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear', roundFinalVal=False, stepback=0.0005):
 
 	qi = []
 
@@ -262,9 +267,25 @@ def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear', roundFinal
 		else:
 			qi.append(-q[i]*wP[0])
 
+	# ensure the last value of qi is not nan
+	zFinal = path[-1,1]
+	count = 0
+	sign = np.sign(np.mean(np.diff(path[:,1])))
+	maxCount = 10
+	while np.isnan(qi[-1]):		
+		zFinal -= sign*stepback
+		if count == maxCount:
+			return np.zeros(1)
+		
+		if roundFinalVal:
+			qi[-1] = -q[-1]*round(wPInter(path[-1,0], zFinal)[0])
+		else:
+			qi[-1] = -q[-1]*wPInter(path[-1,0], zFinal)[0]
+		count += 1
+
 	return np.array(qi)
 
-def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', roundFinalVal=False):
+def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', roundFinalVal=False, stepback=0.0005):
 	"""
 	Finds the induced charge at each electrode given a path of the the charged particle
 
@@ -274,6 +295,7 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 		path - the position to compute the weighted potential at. Nx2 (x,y position at different time steps) numpy array
 		q - charge of the particle
 		roundFinalVal - boolean value indicating whether or not this is an electron/hole moving through an object. If true, rounds the value of the last weighted potential
+		stepback - double of how much to back off in the z direction if we encounter a NaN final value
 	Outputs:
 		qA - charge induced at electrode A
 		qB - charge induced at electrode B
@@ -296,7 +318,7 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 	for i in range(path.shape[0]):
 		Va = VaInter(path[i,0], path[i,1])
 		Vb = VbInter(path[i,0], path[i,1])
-		# print(Va, path[i,0], path[i,1])
+		
 		# Find the q induced via the Shokley-Ramo Theorem
 		if i == path.shape[0] - 1 and roundFinalVal:
 			qA.append(-q[i]*round(Va[0]))
@@ -304,6 +326,24 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 		else:
 			qA.append(-q[i]*Va[0])
 			qB.append(-q[i]*Vb[0])
+
+	# ensure the last value of qi is not nan
+	zFinal = path[-1,1]
+	sign = np.sign(np.mean(np.diff(path[:,1])))
+	count = 0
+	maxCount = 10
+	while np.isnan(qA[-1]) or np.isnan(qB[-1]):
+		zFinal -= sign*stepback
+		if count == maxCount:
+			return np.zeros(1), np.zeros(1), np.zeros(1)
+		
+		if roundFinalVal:
+			qA[-1] = -q[-1]*round(VaInter(path[-1,0], zFinal)[0])
+			qB[-1] = -q[-1]*round(VbInter(path[-1,0], zFinal)[0])
+		else:
+			qA[-1] = -q[-1]*VaInter(path[-1,0], zFinal)[0]
+			qB[-1] = -q[-1]*VbInter(path[-1,0], zFinal)[0]
+		count += 1
 
 	qA, qB = np.array(qA), np.array(qB)
 
