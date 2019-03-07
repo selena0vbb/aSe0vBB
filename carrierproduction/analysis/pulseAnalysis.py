@@ -67,22 +67,22 @@ def fitLinearPiecewise(t, signal, nPieces=4):
     fitObj = pwlf.PiecewiseLinFit(t, signal)
     fitResult = fitObj.fit(nPieces)
 
-    xx = np.linspace(0, t[-1], 1000)
-    yy = fitObj.predict(xx)
+    # xx = np.linspace(0, t[-1], 1000)
+    # yy = fitObj.predict(xx)
 
-    fig, ax = plt.subplots()
-    ax.plot(t, signal, linewidth=2, color='k')
-    ax.plot(xx, yy, linewidth=2, color='r')
+    # fig, ax = plt.subplots()
+    # ax.plot(t, signal, linewidth=2, color='k')
+    # ax.plot(xx, yy, linewidth=2, color='r')
 
-    ax.legend(['Raw Data', 'Fit'])
-    ax.set_xlabel('Time ($\mu s$)', fontsize=16)
-    ax.set_ylabel('ADC', fontsize=16)
-    plt.show()
+    # ax.legend(['Raw Data', 'Fit'])
+    # ax.set_xlabel('Time ($\mu s$)', fontsize=16)
+    # ax.set_ylabel('ADC', fontsize=16)
+    # plt.show()
 
     return fitObj, fitResult
 
 
-def writeBinFiles(outfile, infilepath, inpattern='*.npy', Ns=50000, conversion=800*0.05/(122*1.6e-19), fs=250., fcut=[5300.*1e-6, 530000.*1e-6], addNoise=False, filterPulse=False, minEnergy=20):
+def writeBinFiles(outfile, infilepath, inpattern='*.npy', Ns=50000, conversion=800*0.05/(122*1.6e-19), fs=250., fcut=[5300.*1e-6, 530000.*1e-6], addNoise=False, filterPulse=False, minEnergy=20, returnPulse=False, returnPulseIdx=0, addTwice=False):
 
     data = readBatchFiles(infilepath, inpattern)
     Ns = 50000
@@ -121,20 +121,35 @@ def writeBinFiles(outfile, infilepath, inpattern='*.npy', Ns=50000, conversion=8
         print(min(numberOfPulsesPerFile, N - numberOfPulsesPerFile*j))
         for i in range(min(numberOfPulsesPerFile, N - numberOfPulsesPerFile*j)):
             cnt = numberOfPulsesPerFile*j + i
-            if(data[cnt][1][-1] < -minEnergy*q/w):
-
+            print(i)
+            try:
+                energyBoolean = abs(data[cnt][1][np.logical_not(np.isnan(data[cnt][1]))][-1]) > minEnergy*q/w
+            except:
+                energyBoolean = False
+            if(energyBoolean):
+                print(abs(data[cnt][1][np.logical_not(np.isnan(data[cnt][1]))][-1])*w/q)
                 singlePulse = convertPulse2ADC(data[cnt][0], data[cnt][1], fs=fs, Ns=Ns, conversion=conversion)
+
+                if data.shape[1] == 4:
+                    singlePulseA = convertPulse2ADC(data[cnt][0], data[cnt][2], fs=fs, Ns=Ns, conversion=conversion)
+                    singlePulseB = convertPulse2ADC(data[cnt][0], data[cnt][3], fs=fs, Ns=Ns, conversion=conversion)
 
                 if filterPulse:
                     # Filter the pulse with the given RC parameters
                     singlePulse = butter_bandpass_electronic_filter(singlePulse, lowcut=fcut[0], highcut=fcut[1], fs=fs)
 
+                    if data.shape[1] == 4:
+                        singlePulseA = butter_bandpass_electronic_filter(singlePulseA, lowcut=fcut[0], highcut=fcut[1], fs=fs)
+                        singlePulseB = butter_bandpass_electronic_filter(singlePulseB, lowcut=fcut[0], highcut=fcut[1], fs=fs)
+
                 if addNoise:
                     k = 0
+
                     while k < Ns:
                         if k % nNoise == 0:
                             setree.GetEntry(entryCounter)
                             entryCounter = (entryCounter + 1) % nEntries
+                            print(noise[0])
 
                             # matches baseline noise between two events
                             if k != 0:
@@ -145,10 +160,14 @@ def writeBinFiles(outfile, infilepath, inpattern='*.npy', Ns=50000, conversion=8
                                     beginCurrentSegMean += noiseLeaf.GetValue(m % nNoise)
                                 beginCurrentSegMean /= nMean
                                 noiseOffset = endPreviousSegmentMean - beginCurrentSegMean
+                                print(noiseOffset)
                             else:
                                 noiseOffset = 0
 
-                        noise[k] = noiseLeaf.GetValue(k % nNoise) + noiseOffset
+                        if addTwice:
+                            noise[k] = noiseLeaf.GetValue(k % nNoise)*2 -3600 + noiseOffset
+                        else:
+                            noise[k] = noiseLeaf.GetValue(k % nNoise) + noiseOffset
 
                         # Increment the counter
                         k += 1
@@ -157,12 +176,23 @@ def writeBinFiles(outfile, infilepath, inpattern='*.npy', Ns=50000, conversion=8
                     try:
                         singlePulse += noise
                         pulses[pulseCounter*Ns:(pulseCounter+1)*Ns] = singlePulse.astype('uint16')
+                        if data.shape[1] == 4:
+                            singlePulseA += noise
+                            singlePulseA.astype('uint16')
+                            singlePulseB += noise
+                            singlePulseB.astype('uint16')
+
                         pulseCounter += 1
                     except ValueError:
                         pass
 
-                print(i)
 
+            if returnPulse:
+                if i == returnPulseIdx:
+                    if data.shape[1] == 4:
+                        return (singlePulse, singlePulseA, singlePulseB)
+                    else:
+                        return singlePulse
         pulses[0:pulseCounter*Ns].tofile(chunkOutfile)
 
     # read the binary files using file operations and keep writing to the same file

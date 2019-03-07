@@ -4,6 +4,7 @@ import numpy as np
 import pulseAnalysis as pa
 import matplotlib.pyplot as plt
 import brewer2mpl
+import scipy.signal as scp
 
 intensity122 = 0.856
 intensity136 = 0.1068
@@ -261,6 +262,54 @@ def compare_angled_spectrum(logplot=False):
     f.tight_layout()
     plt.show()
 
+def compare_pulse_pixel2coplanar():
+    """
+    Compare the pulse of the pixel w noise and the coplanar w noise
+    """
+
+    # Get the data
+    pixelFilepath = r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield'
+    pixelPattern = r'pixel_122kev_sio2_4000V_0deg_pt\d.npy'
+    coplanarFilepath = r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield'
+    coplanarPattern = r'coplanar_scaling_particle_event_poisson_trap.npy'
+
+    pindx = 10
+    cindx = 5
+    coplanarData = pa.readBatchFiles(coplanarFilepath, coplanarPattern)
+
+
+    pixelPulse = pa.writeBinFiles('test.dat', pixelFilepath, pixelPattern, minEnergy=100, addNoise=True, filterPulse=True, returnPulse=True, returnPulseIdx=pindx)
+
+    coplanarPulse = pa.writeBinFiles('test.dat', coplanarFilepath, coplanarPattern, minEnergy=100, addNoise=True, filterPulse=True, returnPulse=True, returnPulseIdx=cindx, addTwice=True)
+
+    # Make plots
+    fig, (ax1, ax2) = plt.subplots(1,2, sharey=True)
+
+    # Pixel
+    dt = 1./250
+    Ns = 50000
+    t = np.arange(55, 55+Ns*dt, dt)
+    tstart = 85
+    tend = 145
+    ds = 10
+
+    ax1.plot(t[int(tstart/dt):int(tend/dt)][::ds], scp.decimate(pixelPulse[int(tstart/dt):int(tend/dt)]-3600, ds), linewidth=2, color='black', label='Single Pixel Simulated')
+    ax1.plot(t[int(tstart/dt):int(tend/dt)], -800*np.ones(t.size)[int(tstart/dt):int(tend/dt)], '--r', linewidth=3, label='Expected Pulse Height')
+    ax1.set_ylabel('ADC', fontsize=14, horizontalalignment='right', y=1.0)
+    ax1.set_xlabel('t [$\mu s$]', fontsize=14, horizontalalignment='right', x=1.0)
+    ax1.legend(loc='best')
+
+    # Coplanar
+    # ax2.plot(t, coplanarPulse[1], linewidth=1, color='green', label='qA')
+    # ax2.plot(t, coplanarPulse[2], linewidth=1, color='blue', label='qB')
+    ax2.plot(t[int(tstart/dt):int(tend/dt)][::ds], scp.decimate(coplanarPulse[int(tstart/dt):int(tend/dt)]-3600, ds), linewidth=2, color='black', label='Coplanar Simulated')
+    ax2.plot(t[int(tstart/dt):int(tend/dt)], -800*np.ones(t.size)[int(tstart/dt):int(tend/dt)], '--r', linewidth=3, label='Expected Pulse Height')
+
+    ax2.set_ylabel('ADC', fontsize=14, horizontalalignment='right', y=1.0)
+    ax2.set_xlabel('t [$\mu s$]', fontsize=14, horizontalalignment='right', x=1.0)
+    ax2.legend(loc='best')
+
+
 def plot_noise_vs_no_noise():
 
     data = pa.readBatchFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2', 'pixel_122kev_sio2_5M_pt\d+.npy')
@@ -290,5 +339,6 @@ if __name__ == '__main__':
     # data = add_noise_to_pulses('test', 'test')
     # noise_spectrum()
     # plot_noise_vs_no_noise()
-    compare_angled_spectrum(False)
+    # compare_angled_spectrum(False)
+    compare_pulse_pixel2coplanar()
     plt.show()
