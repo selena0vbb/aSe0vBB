@@ -149,35 +149,56 @@ def charge_compute_wrapper(event, emfilename, e, wehp, neg, **settings):
     indx20us = t.size - 1
     return neg*qNo[indx1us]/e * wehp, neg*qNo[indx20us]/e * wehp
 
+def testNewgEventCollection():
+    filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\136_keV_70k.root"
+
+    newEventCollection = pd.gEventCollection(filename, eventCounterRange=[2,10])
+
+    print('Successfully read')
+    return None
+
 def noise_histogram_parallel():
-    filename =r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTupleLarge.root"
-    emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt"
-    configfilename = "./config.txt"
+
+    configfilename = "/home/apiers/aSe0vBB/carrierproduction/config.txt"
 
     settings = sc.readConfigFile(configfilename)
 
-    eventCollection = pd.gEventCollection(filename)
+    filename=settings['PARTICLE_FILENAME']
+    emfilename=settings['EM_FILENAME']
 
-    simObj = pd.CarrierSimulation(emfilename=emfilename, eventCollection=eventCollection, configfile=configfilename)
+    nEvents = pd.numberOfEvents(filename)
 
-    indx = []
-    for i in range(len(eventCollection.collection)):
-        event = eventCollection.collection[i]
-        flat = event.flattenEvent()
+    simObj = pd.CarrierSimulation(emfilename=emfilename, configfile=configfilename)
 
-        etot = sum(flat['energy'])
-        zmin = min(flat['z'])
-        ymax = np.max(np.abs(flat['y']))
+    filesize=settings['NEVENTS_PER_FILE']
+    outdir=settings['OUTPUT_DIR']
+    outfilename=settings['OUTPUT_FILE']
 
-        if round(etot) == 122 and ymax < 0.5 and zmin > -0.05:
-            indx.append(i)
 
-    print(len(indx))
+    # Chunk event collection into smaller pieces if needed
 
-    signal = simObj.processMultipleEvents(indx, processes=1)
+    for j in range(int(np.ceil(nEvents/filesize))):
+        indx = []
+        # Create new event collect with the smaller chunck size
+        newEventCollection = pd.gEventCollection(filename, eventCounterRange=[j*filesize, (j+1)*filesize-1])
+        simObj.newEventCollection(newEventCollection)
+        for i in range(len(newEventCollection.collection)):
+            event = newEventCollection.collection[i]
+            flat = event.flattenEvent()
+            zmin = min(flat['z'])
+            ymin = np.min(np.abs(flat['y']))
 
-    simObj.saveTimeSeries(np.array(signal))
+            if ymin < 1.2 and zmin > -0.1:
+                indx.append(i)
 
+
+
+        signal = simObj.processMultipleEvents(indx, processes=int(settings['NPROCESSORS']))
+        simObj.outputfile = outfilename%j
+        simObj.outputdir = outdir
+        simObj.saveTimeSeries(np.array(signal))
+        print(len(indx))
+        signal=0
 
 def noise_histogram_multiple_events():
     filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"
@@ -282,6 +303,7 @@ if __name__ == '__main__':
     # noise_histogram()
     # noise_histogram_multiple_events()
     noise_histogram_parallel()
+    # testNewgEventCollection()
     # plt.show()
 
     # filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt'

@@ -13,9 +13,9 @@ void plotCo57()
 	
 
 	// Location where output data files are stored
-	char* file122kev = "./output/122_keV_Simple_Physicslarge.root";
-	char* file136kev = "./output/136_keV_Simple_Physicslarge.root";
-	char* file14kev = "./output/14_keV_Simple_Physicslarge.root";
+	const char* file122kev = "./output/122_keV_Simple_Physicslarge.root";
+	const char* file136kev = "./output/136_keV_Simple_Physicslarge.root";
+	const char* file14kev = "./output/14_keV_Simple_Physicslarge.root";
 
 	// Load data
 	TFile *f122 = new TFile(file122kev);
@@ -46,4 +46,95 @@ void plotCo57()
 	// Update Canvas
 	c1->Modified();
 	c1->Update();
+}
+
+void createCobaltTree(int N, const char* file122, const char* file136, const char* file14, const char* output="/home/apiers/data/particle/cobalt_spectrum.root"){
+
+	TFile *outfile = new TFile(output, "RECREATE");
+
+	// Read data files of particle data
+	TFile *f122 = new TFile(file122); 
+	TFile *f136 = new TFile(file136); 
+	TFile *f14 = new TFile(file14);
+
+	// Get trees from file
+	TTree *t122 = (TTree*)f122->Get("aSeData"); 
+	TTree *t136 = (TTree*)f136->Get("aSeData"); 
+	TTree *t14 = (TTree*)f14->Get("aSeData"); 
+	
+	// Get number of gamma particles simulated
+	int max122Events = (int)t122->GetMaximum("EventID") + 1;
+	int max136Events = (int)t136->GetMaximum("EventID") + 1;
+	int max14Events = (int)t14->GetMaximum("EventID") + 1;
+	
+	// Definition of intensities
+	double inten122 = 0.856;
+	double inten136 = 0.1068;
+	double inten14 = 0.0916;
+
+	// Define number of events to use from each energy spectrum 
+	int n122 = (int) N*inten122;
+	int n136 = (int) N*inten136;
+	int n14 = (int) N*inten14;
+	
+	// Create new trees for the energies filtered by the number of events that come from Co-57 decay
+	char *filter122 = new char[50];
+	char *filter136 = new char[50];
+	char *filter14 = new char[50];
+	sprintf(filter122, "EventID < %i", n122);
+	sprintf(filter136, "EventID < %i", n136);
+	sprintf(filter14, "EventID < %i", n14);
+	
+	cout << filter122 << "   " << filter136 << "   " << filter14 << endl;	
+
+	outfile->cd();
+	TTree* t122Filter = t122->CopyTree(filter122);
+	TTree* t136Filter = t136->CopyTree(filter136);
+	TTree* t14Filter = t14->CopyTree(filter14);
+
+	// Combine trees and write to file
+	TList *list = new TList();
+	list->Add(t122Filter); list->Add(t136Filter); list->Add(t14Filter); 
+	TTree *coTree = TTree::MergeTrees(list);
+
+	coTree->SetName("aSeData");
+
+	// Create histogram to store the energy spectrum
+	int eventID = -1;
+	int currentID;
+	double energy;
+	double totalenergy=0;
+	coTree->SetBranchAddress("EventID", &currentID);
+	coTree->SetBranchAddress("energy", &energy);
+	TH1D * hSpectrum = new TH1D("EneDepSe", "EneDepSe", 150, 0, 150);
+	for(int i=0; i<coTree->GetEntries(); i++){
+		
+		coTree->GetEntry(i);
+		//cout << currentID << endl;
+		if(currentID != eventID){
+			if(eventID != -1){
+				hSpectrum->Fill(totalenergy*1000);
+				totalenergy=0;
+			}
+			eventID = currentID;
+		}
+		totalenergy += energy;
+	}
+	// Create a new file and write the data
+	coTree->Write();
+	hSpectrum->Write();
+	outfile->Close();
+
+	return;
+
+}
+
+void cobaltWrapper(){
+
+	const char * f122 = "/home/apiers/data/particle/pixel_sio2_122kev_75degangle_200k.root";
+	const char * f136 = "/home/apiers/data/particle/pixel_sio2_136kev_75degangle_200k.root";
+	const char * f14 = "/home/apiers/data/particle/pixel_sio2_14kev_75degangle_200k.root";
+	int N = 200000;
+	createCobaltTree(N, f122, f136, f14, "/home/apiers/data/particle/pixel_cobalt_75deg_200k.root");
+	return;
 }

@@ -15,7 +15,8 @@ from pathlib import Path
 import tqdm
 
 # add the EM plot module to the path and import it
-sys.path.append(str(Path('../EM Analysis')))
+sys.path.append('/home/apiers/aSe0vBB/EM Analysis')
+print(sys.version)
 from plot import readComsolFileGrid, findMotion, inducedCharge, inducedChargeSingle
 
 
@@ -204,7 +205,7 @@ class gEvent(object):
 
 class gEventCollection(object):
 	"""docstring for gEventCollection"""
-	def __init__(self, rootFilename, **kwargs):
+	def __init__(self, rootFilename, eventCounterRange=None, **kwargs):
 
 		self.rootFilename = rootFilename
 		self.collection = []
@@ -214,13 +215,19 @@ class gEventCollection(object):
 		# Gets a tree with the name aSeData. Current name from Geant4 simulation.
 		tree = f.Get("aSeData")
 		eventID = -1
+		eventCounter = 0
 		hitsList = []
 
 		# Iterate over all of the entries in the tree, extracting tuple i
 		for entry in tree:
 			if eventID != entry.EventID:
 				if eventID != -1:
-					self.collection.append(gEvent(gEventID=eventID, hits=hitsList))
+					if eventCounterRange != None:
+						if eventCounter >= eventCounterRange[0]:
+							self.collection.append(gEvent(gEventID=eventID, hits=hitsList))
+					else:
+						self.collection.append(gEvent(gEventID=eventID, hits=hitsList))
+					eventCounter+=1
 				hitsList = []
 				eventID = entry.EventID
 				hit = {'trackID' : entry.TrackID, 'parentID' : entry.ParentID, 'x' : entry.x, 'y' : entry.y, 'z' : entry.z, 'energy' : entry.energy*1e3, 'particle' : entry.ParticleType, 'creatorProcess' : entry.ProcessName}
@@ -230,6 +237,10 @@ class gEventCollection(object):
 				hit = {'trackID' : entry.TrackID, 'parentID' : entry.ParentID, 'x' : entry.x, 'y' : entry.y, 'z' : entry.z, 'energy' : entry.energy*1e3, 'particle' : entry.ParticleType, 'creatorProcess' : entry.ProcessName}
 				hitsList.append(hit)
 
+			if eventCounterRange != None and eventCounter >= eventCounterRange[1]:
+				break
+
+		self.totalNEvents = len(self.collection)
 
 	def printInfo(self):
 		""" Prints information regarding the collection of events"""
@@ -249,6 +260,75 @@ class gEventCollection(object):
 			print("Could not find a event matching the ID %i" % eventID)
 
 		return foundEvent
+
+	def plotAngularDistribution1D(self, nEvents=None, style='polar', showPlot=True):
+		np.seterr(all='raise')
+		if nEvents == None:
+			nEvents = self.totalNEvents
+
+		thetalist = []
+		# Iterate over the prescirbed number of events
+		for i in range(nEvents):
+			# print(i)
+			event = self.collection[i]
+			flatdata = event.flattenEvent()
+
+			# Need to 2d histogram
+			xbins = np.arange(-2000, 2000, 4)
+			zbins = np.arange(-100, 100)
+			trackHist, _, _ = np.histogram2d(np.array(flatdata['x'])*1000, np.array(flatdata['z'])*1000, bins=[xbins, zbins], weights=flatdata['energy'])
+
+			# Find non zero elements of the histogram. Find associated x and z components
+			xindx, zindx = np.nonzero(trackHist)
+
+			if xindx.size == 0 or zindx.size == 0 or np.sum(flatdata['energy']) < 100:
+				continue
+			else:
+				# perform a linear fit of the x and z data
+				try:
+					# Filter out outliers (k shell xray emission)
+					xmask = np.abs(xindx - np.mean(xindx)) < 2.5*np.std(xindx)
+					zmask = np.abs(zindx - np.mean(zindx)) < 2.5*np.std(zindx)
+					fmask = np.logical_and(zmask, xmask)
+					xdata = xbins[xindx[fmask]]
+					zdata = zbins[zindx[fmask]]
+					energyWeight = trackHist[(xindx[fmask], zindx[fmask])]
+					slope, intercept = np.polyfit(zdata, xdata, 1)#, w=energyWeight)
+					plt.plot(zdata, xdata, '*')
+					plt.plot(zdata, zdata*slope+intercept)
+					print(slope)
+					# convert slope to theta
+					theta = np.arctan(slope) + 3*np.pi/2
+					# add to array
+					thetalist.append(theta)
+				except:
+					pass
+
+		plt.show()
+
+		# histogram the theta data
+		nbins = 100
+		thetaBins = np.linspace(0, 2*np.pi, nbins)
+		thetaAxis = thetaBins[1:] - np.diff(thetaBins)[0]
+		thetaHist, _ = np.histogram(thetalist, bins=thetaBins)
+		if style == 'polar':
+			ax = plt.subplot(111, projection='polar')
+			ax.bar(thetaAxis, thetaHist, width=2*np.pi/nbins, bottom=0.0)
+		elif style == 'xy':
+			fig, ax = plt.subplots()
+			ax.hist(thetalist, bins=thetaBins, linewidth=2, histtype='step')
+		else:
+			print('Invalid plotting style')
+			ax = None
+
+		if showPlot:
+			plt.show()
+
+		return thetaBins, thetaHist, ax
+
+
+
+
 
 class CarrierSimulation(object):
 	"""Wrapper class for all the functions and data surrounding the charge carrier simulation. All info is housed in one class for efficiency purposes"""
@@ -289,6 +369,8 @@ class CarrierSimulation(object):
 			self.scale = 1
 
 		self.createFields()
+		self.outputdir = self.settings['OUTPUT_DIR']
+		self.outputfile = self.settings['OUTPUT_FILE']
 
 	def newEmFile(self, emfilename):
 		"""
@@ -433,7 +515,8 @@ class CarrierSimulation(object):
 		muHole, muElectron = self.settings['MU_HOLES'], self.settings['MU_ELECTRONS']# mm^2/(V*us)
 		maxtime = 0
 		allInduced = []
-
+		elecAInduced = []
+		elecBInduced = []
 		# iterate over all the grid points of electron hole pairs
 		for i in range(binx.shape[0]):
 			for j in range(biny.shape[0]):
@@ -452,8 +535,11 @@ class CarrierSimulation(object):
 					qHoleArray, qElectronArray = self.chargeArray(nehpf[i,j], pathHoles.shape[0], pathElectrons.shape[0])
 
 					# Keep the longest time for reference in
-					if np.max([pathHoles[-1,2], pathElectrons[-1,2]]) > maxtime:
-						maxtime = np.max([pathHoles[-1,2], pathElectrons[-1,2]])
+					try:
+						if np.max([pathHoles[-1,2], pathElectrons[-1,2]]) > maxtime:
+							maxtime = np.max([pathHoles[-1,2], pathElectrons[-1,2]])
+					except:
+						pass
 
 					if self.settings['CHARGE_DIFFERENCE']:
 						# Compute difference in induced charge, qA-qB, for both electrons and holes. Incorporates scale factor (which is =1 for no scaling)
@@ -465,6 +551,11 @@ class CarrierSimulation(object):
 						# append to  list of induced charge
 						allInduced.append(indChargeHoles)
 						allInduced.append(indChargeElectrons)
+						if self.settings['SAVE_PARTIAL_PULSES']:
+							elecAInduced.append(qAHoles)
+							elecAInduced.append(qAElectrons)
+							elecBInduced.append(self.scale * qBHoles)
+							elecBInduced.append(self.scale * qBElectrons)
 
 					else:
 						# Compute induced charge on a single electrode
@@ -478,6 +569,7 @@ class CarrierSimulation(object):
 		qIndHole = np.zeros(timeHoles.shape)
 		qIndElectron = np.zeros(timeElectrons.shape)
 
+
 		# Iterate over the induced charge by each grid contribution and add them to the total charge induced on the electrode
 		for indx, charge in enumerate(allInduced):
 			if indx % 2 == 0:
@@ -487,11 +579,34 @@ class CarrierSimulation(object):
 			else:
 				qIndElectron[:len(charge)] += charge
 				qIndElectron[len(charge):] += charge[-1]
-
+		
 		# Interpolate the Electron induced charge to match the holes so we can add them together
-
 		qInduced = qIndHole + np.interp(timeHoles, timeElectrons, qIndElectron)
+		
+		# Create total induced charge for electrodes A and B (if setting is selected)
+		if self.settings['SAVE_PARTIAL_PULSES'] and self.settings['CHARGE_DIFFERENCE']:
+			qIndHoleA = np.zeros(timeHoles.shape)
+			qIndElectronA = np.zeros(timeElectrons.shape)
+			qIndHoleB = np.zeros(timeHoles.shape)
+			qIndElectronB = np.zeros(timeElectrons.shape)
+			
+			for partialIndx in range(len(elecAInduced)):
+				if partialIndx % 2 == 0:
+					qIndHoleA[:len(elecAInduced[partialIndx])] += elecAInduced[partialIndx]
+					qIndHoleA[len(elecAInduced[partialIndx]):] += elecAInduced[partialIndx][-1]
+					qIndHoleB[:len(elecBInduced[partialIndx])] += elecBInduced[partialIndx]
+					qIndHoleB[len(elecBInduced[partialIndx]):] += elecBInduced[partialIndx][-1]
+				else:
+					qIndElectronA[:len(elecAInduced[partialIndx])] += elecAInduced[partialIndx]	
+					qIndElectronA[len(elecAInduced[partialIndx]):] += elecAInduced[partialIndx][-1]	
+					qIndElectronB[:len(elecBInduced[partialIndx])] += elecBInduced[partialIndx]	
+					qIndElectronB[len(elecBInduced[partialIndx]):] += elecBInduced[partialIndx][-1]
 
+			qInducedA = qIndHoleA + np.interp(timeHoles, timeElectrons, qIndElectronA)
+			qInducedB = qIndHoleB + np.interp(timeHoles, timeElectrons, qIndElectronB)
+
+			return timeHoles, qInduced, qInducedA, qInducedB
+	
 		return timeHoles, qInduced
 
 	def processMultipleEvents(self, eventIdxs, processes=1, chunksize=8):
@@ -523,8 +638,8 @@ class CarrierSimulation(object):
 		return chargeSignals
 
 	def saveTimeSeries(self, data):
-		outdir = self.settings['OUTPUT_DIR']
-		outfile = self.settings['OUTPUT_FILE']
+		outdir = self.outputdir
+		outfile = self.outputfile
 
 		outpath = Path(outdir) / outfile
 
@@ -634,36 +749,44 @@ def filterSignal(signal, time, freqResponseFile):
 
 	return signalFilter, time, signalFilterFreq, xf, yf
 
+def numberOfEvents(rootFile, key="EneDepSe"):
+	""" Reads the root file and calculates the number of entries in the file"""
+	f = rt.TFile(rootFile)
+	obj = f.Get(key)
+
+	return obj.GetEntries()
 
 if __name__ == '__main__':
 	# used for debuggin information. If the particledata.py file is run this segment of the code will run
-	filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\122_keV_testTuple.root"
+	filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\pixel_sio2_122kev_0degangle_200k.root"
+	filenameAngle =r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\pixel_sio2_122kev_75degangle_200k.root"
 	emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt"
 	configfilename = r"./config.txt"
 
 	settings = sc.readConfigFile(configfilename)
 
 	# Create new collection
-	newCollection = gEventCollection(filename)
+	newCollection = gEventCollection(filename, [0, 150])
 	newCollection.printInfo()
 
+	newCollection.plotAngularDistribution1D()
 	# Create simulation object
-	simObject = CarrierSimulation(emfilename=emfilename, eventCollection=newCollection, configfile=configfilename)
+	# simObject = CarrierSimulation(emfilename=emfilename, eventCollection=newCollection, configfile=configfilename)
 
 
-	print('running simulations')
-	# Plot results
-	fig, ax = plt.subplots()
-	indx = [125, 129, 130, 131, 132]
-	results = simObject.processMultipleEvents(indx, processes=1)
-	for i in indx:
-		print(i)
-		t, q = simObject.computeChargeSignal(i)
-		ax.plot(t, -q/1.6e-19*0.05, linewidth=3, label='%i'%i)
-	ax.set_xlabel('Time ($\mu) s$', fontsize=14)
-	ax.set_ylabel('Charge (keV)', fontsize=14)
-	ax.legend()
-	plt.show()
+	# print('running simulations')
+	# # Plot results
+	# fig, ax = plt.subplots()
+	# indx = [125, 129, 130, 131, 132]
+	# results = simObject.processMultipleEvents(indx, processes=1)
+	# for i in indx:
+	# 	print(i)
+	# 	t, q = simObject.computeChargeSignal(i)
+	# 	ax.plot(t, -q/1.6e-19*0.05, linewidth=3, label='%i'%i)
+	# ax.set_xlabel('Time ($\mu) s$', fontsize=14)
+	# ax.set_ylabel('Charge (keV)', fontsize=14)
+	# ax.legend()
+	# plt.show()
 
 
 

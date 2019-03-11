@@ -14,14 +14,10 @@
 #include "G4UIcommand.hh"
 #include "Randomize.hh"
 
-
-
 #include "SimulationSettings.hh"
-
-
-
 #include "time.h"
 
+using namespace std;
 
 int main(int argc, char** argv)
 {
@@ -50,10 +46,8 @@ int main(int argc, char** argv)
 	// Defining the physics we want to use
 	G4cout << "Physics" << G4endl;
 	SeleniumPhysicsList* physics = new SeleniumPhysicsList();
-	// DAMICPhysicsListLivermore* physics = new DAMICPhysicsListLivermore();
-	// DAMICPhysicsList* physics = new DAMICPhysicsList();
 	manager->SetUserInitialization(physics);
-	
+
 	// Set User action initialization
 	G4cout << "User Action Initialization" << G4endl;
 	manager->SetUserInitialization(new SeleniumActionInitialization(filename, detector));
@@ -69,12 +63,21 @@ int main(int argc, char** argv)
 
 	// Process macro or start interactive.
 	// For now only have interactive for simplicity
-	UImanager->ApplyCommand("/control/execute init_vis.mac");
-	ui->SessionStart();
-	delete ui;
+	UImanager->ApplyCommand("/control/macroPath ./");
+	if(argc==1){
+		ui->SessionStart();
+		delete ui;
+	}else if(argc==2){
+		char *macroCommand = new char[100];
+		sprintf(macroCommand, "/control/execute %s", argv[1]);
+		cout << "Running macro: " << macroCommand << endl;
+		UImanager->ApplyCommand(macroCommand);
+	}else{
+		cout << "Invalid number of inputs" << endl;
+	}
 
 	// Job Termination
 	delete visManager;
 	delete manager;
-	
+
 }
