@@ -344,30 +344,59 @@ def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear', roundFinal
 	if type(q) != np.ndarray:
 		q = q*np.ones(path.shape[0])
 
-	wPInter = scp.interp2d(wPotential[0], wPotential[1], np.reshape(wPotential[2],(wPotential[1].size, wPotential[0].size)), kind=method)
+	# Check if we are in 2 or 3D
+	if len(wPotential) == 4:
+		threeDim = True
+	else:
+		threeDim = False
 
+	# Define potential interpolation function
+	if threeDim:
+		wPInter = scp.RegularGridInterpolator((wPotential[0], wPotential[1], wPotential[2]), 
+			np.reshape(wPotential[3], (wPotential[0].size, wPotential[1].size, wPotential[2].size), order='F'), bounds_error=False, method=method)
+	else:
+		wPInter = scp.RegularGridInterpolator((wPotential[0], wPotential[1]), np.reshape(wPotential[2],(wPotential[0].size, wPotential[1].size), order='F'),
+		bounds_error=False, method=method)
+
+	# Find charge induced at each point in the path
 	for i in range(path.shape[0]):
+		if threeDim:
+			wP = wPInter([path[i,0], path[i,1], path[i,2]])
+		else:
+			wP = wPInter([path[i,0], path[i,1]])
 
-		wP = wPInter(path[i,0], path[i,1])
 		if i == path.shape[0] - 1 and roundFinalVal:
 			qi.append(-q[i]*round(wP[0]))
 		else:
 			qi.append(-q[i]*wP[0])
 
 	# ensure the last value of qi is not nan
-	zFinal = path[-1,1]
+	if threeDim:
+		zFinal = path[-1, 2]
+		sign = np.sign(np.mean(np.diff(path[:,2])))
+	else:
+		zFinal = path[-1, 1]
+		sign = np.sign(np.mean(np.diff(path[:,1])))
+	
 	count = 0
-	sign = np.sign(np.mean(np.diff(path[:,1])))
 	maxCount = 10
 	while np.isnan(qi[-1]):		
 		zFinal -= sign*stepback
 		if count == maxCount:
 			return np.zeros(1)
 		
-		if roundFinalVal:
-			qi[-1] = -q[-1]*round(wPInter(path[-1,0], zFinal)[0])
+		# Recompute the last value with the step backed z value
+		if threeDim:
+			if roundFinalVal:
+				qi[-1] = -q[-1]*round(wPInter([path[-1,0], path[-1,1], zFinal])[0])
+			else:
+				qi[-1] = -q[-1]*wPInter([path[-1,0], path[-1,1], zFinal])[0]
 		else:
-			qi[-1] = -q[-1]*wPInter(path[-1,0], zFinal)[0]
+			if roundFinalVal:
+				qi[-1] = -q[-1]*round(wPInter([path[-1,0], zFinal])[0])
+			else:
+				qi[-1] = -q[-1]*wPInter([path[-1,0], zFinal])[0]
+
 		count += 1
 
 	return np.array(qi)
@@ -377,8 +406,8 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 	Finds the induced charge at each electrode given a path of the the charged particle
 
 	Inputs:
-		wPotentialA - list including [x, y, Phi]. The x,y position pairs and the potential occuring at this. For electrode A
-		wPotentialB - list including [x, y, Phi]. The x,y position pairs and the potential occuring at this. For electrode B
+		wPotentialA - list including [x, y, (z), Phi]. The x,y(z) position pairs and the potential occuring at this. For electrode A
+		wPotentialB - list including [x, y, (z), Phi]. The x,y,(z) position pairs and the potential occuring at this. For electrode B
 		path - the position to compute the weighted potential at. Nx2 (x,y position at different time steps) numpy array
 		q - charge of the particle
 		roundFinalVal - boolean value indicating whether or not this is an electron/hole moving through an object. If true, rounds the value of the last weighted potential
@@ -394,17 +423,36 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 	if len(path) == 0:
 		return np.zeros(1), np.zeros(1), np.zeros(1)
 
+	# Check if we are in 2 or 3D
+	if len(wPotentialA) == 4:
+		threeDim = True
+	else:
+		threeDim = False
+
+
 	# Definte interplation functions
-	VaInter = scp.interp2d(wPotentialA[0], wPotentialA[1], np.reshape(wPotentialA[2],(wPotentialA[1].size, wPotentialA[0].size)), kind=method)
-	VbInter = scp.interp2d(wPotentialB[0], wPotentialB[1], np.reshape(wPotentialB[2],(wPotentialA[1].size, wPotentialA[0].size)), kind=method)
+	if threeDim:
+		VaInter = scp.RegularGridInterpolator((wPotentialA[0], wPotentialA[1], wPotentialA[2]), 
+			np.reshape(wPotentialA[3], (wPotentialA[0].size, wPotentialA[1].size, wPotentialA[2].size), order='F'), bounds_error=False, method=method)
+		VbInter = scp.RegularGridInterpolator((wPotentialB[0], wPotentialB[1], wPotentialB[2]), 
+			np.reshape(wPotentialB[3], (wPotentialB[0].size, wPotentialB[1].size, wPotentialB[2].size), order='F'), bounds_error=False, method=method)
+	else:
+		VaInter = scp.RegularGridInterpolator((wPotentialA[0], wPotentialA[1]), np.reshape(wPotentialA[2],(wPotentialA[0].size, wPotentialA[1].size), order='F'),
+		bounds_error=False, method=method)
+		VbInter = scp.RegularGridInterpolator((wPotentialB[0], wPotentialB[1]), np.reshape(wPotentialB[2],(wPotentialB[0].size, wPotentialB[1].size), order='F'),
+		bounds_error=False, method=method)
 
 	if type(q) != np.ndarray:
 		q = q*np.ones(path.shape[0])
 
 	# Iterated over all the positions in the path
 	for i in range(path.shape[0]):
-		Va = VaInter(path[i,0], path[i,1])
-		Vb = VbInter(path[i,0], path[i,1])
+		if threeDim:
+			Va = VaInter([path[i,0], path[i,1], path[i,2]])
+			Vb = VbInter([path[i,0], path[i,1], path[i,2]])
+		else:
+			Va = VaInter([path[i,0], path[i,1]])
+			Vb = VbInter([path[i,0], path[i,1]])
 		
 		# Find the q induced via the Shokley-Ramo Theorem
 		if i == path.shape[0] - 1 and roundFinalVal:
@@ -415,8 +463,13 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 			qB.append(-q[i]*Vb[0])
 
 	# ensure the last value of qi is not nan
-	zFinal = path[-1,1]
-	sign = np.sign(np.mean(np.diff(path[:,1])))
+	if threeDim:
+		zFinal = path[-1, 2]
+		sign = np.sign(np.mean(np.diff(path[:,2])))
+	else:
+		zFinal = path[-1, 1]
+		sign = np.sign(np.mean(np.diff(path[:,1])))
+
 	count = 0
 	maxCount = 10
 	while np.isnan(qA[-1]) or np.isnan(qB[-1]):
@@ -424,12 +477,20 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 		if count == maxCount:
 			return np.zeros(1), np.zeros(1), np.zeros(1)
 		
-		if roundFinalVal:
-			qA[-1] = -q[-1]*round(VaInter(path[-1,0], zFinal)[0])
-			qB[-1] = -q[-1]*round(VbInter(path[-1,0], zFinal)[0])
+		if threeDim:
+			if roundFinalVal:
+				qA[-1] = -q[-1]*round(VaInter([path[-1,0], path[-1,1], zFinal])[0])
+				qB[-1] = -q[-1]*round(VbInter([path[-1,0], path[-1,1], zFinal])[0])
+			else:
+				qA[-1] = -q[-1]*VaInter([path[-1,0], path[-1,1], zFinal])[0]
+				qB[-1] = -q[-1]*VbInter([path[-1,0], path[-1,1], zFinal])[0]
 		else:
-			qA[-1] = -q[-1]*VaInter(path[-1,0], zFinal)[0]
-			qB[-1] = -q[-1]*VbInter(path[-1,0], zFinal)[0]
+			if roundFinalVal:
+				qA[-1] = -q[-1]*round(VaInter([path[-1,0], zFinal])[0])
+				qB[-1] = -q[-1]*round(VbInter([path[-1,0], zFinal])[0])
+			else:
+				qA[-1] = -q[-1]*VaInter([path[-1,0], zFinal])[0]
+				qB[-1] = -q[-1]*VbInter([path[-1,0], zFinal])[0]
 		count += 1
 
 	qA, qB = np.array(qA), np.array(qB)
@@ -438,8 +499,8 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 
 
 if __name__ == '__main__':
-	filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_weighted_potential.txt'
-	testHeader, testData = readComsolFile(filename)
+	# (?# filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_weighted_potential.txt')
+	# testHeader, testData = readComsolFile(filename)
 
 	# # Creating contour and wireframe plot
 	# print('Test plot function\n')
@@ -482,8 +543,8 @@ if __name__ == '__main__':
 	# ax.legend(['qA','qB','qDiff'])
 
 
-	gridFile = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_export.txt'
-	header, x, y, V = readComsolFileGrid(gridFile)
+	# gridFile = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_export.txt')
+	# header, x, y, V = readComsolFileGrid(gridFile)
 	# print(V.shape)
 	# xx, yy = np.meshgrid(x,y)
 	# z = np.reshape(V, (x.size, y.size))
@@ -492,5 +553,17 @@ if __name__ == '__main__':
 	# ax2.contourf(x, y, z)
 	# plt.show()
 
+	# Test 3D weighted potentail
+	filename = "/home/apiers/mnt/rocks/selena/data/em/pixel_detector_2mmdiam_200umAse_3d_small.txt"
+	_, pos, field = readComsolFileGrid3d(filename)
+	fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(16,9))
+	wPotential = [ pos[0]*1.e6, pos[1]*1.e6, pos[2]*1.e6, field[:,-4] ]
+	x = np.linspace(-1800, 1800, 400)
+	y = np.linspace(-1800, 1800, 400)
+	z = np.linspace(-99, 99, 400)
+	ax1.plot(x, inducedChargeSingle(wPotential, np.array([x, np.zeros(400), np.zeros(400)]).T, q=1), linewidth=2)
+	ax2.plot(y, inducedChargeSingle(wPotential, np.array([np.zeros(400), y, np.zeros(400)]).T, q=1), linewidth=2)
+	ax3.plot(z, inducedChargeSingle(wPotential, np.array([np.zeros(400), np.zeros(400), z]).T, q=1), linewidth=2)
+	plt.show()
 
 
