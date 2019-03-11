@@ -156,7 +156,7 @@ def plotPhi(pos, data, funcIdx, type='contour', figH=None, color=None, ncontour=
 		print('Error: a type of %s is not a valid input', type)
 		return None
 
-def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
+def findMotion(xi, E, vDrift, dt, totalTime=100, method='linear', q=-1.6e-19, limits=[]):
 	"""
 	Computes the position as a function of time (and therefore can be used with the weighted potential) using the drift velocity and E fields of the charge particle
 	The units must be consistent. For example the units of xi and the distance in vDrift must be the same. Same goes with xi and electric field.
@@ -166,7 +166,11 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 		xi - initial position. Tuple of 2 or 3 points, x,y,z
 		E - the electric field at all point in the model. Nx4 or Nx6 matrix where N is the number of different grid points and 4 (6) corresponds to the 2 (3) positions and their corresponding E fields
 		vDrift - drift velocity (length^2/(V*time))
-		dt = time step
+		dt - time step of the motion
+		totalTime - maximum time allowed to calculated the motion over. Prevents code getting stuck when E field is 0
+		method - interpolation method
+		q - fundamental unit of charge. The sign is used to determine what direction the charges go
+		limits - physical (or self imposed) limits of the detector geometry. Once it goes out of bounds, the code stops and the motion is returned
 	Outputs
 		xt - the position of the function as a function of time. Nx3 matrix where N is the number of time steps and columns are x,y,t
 	"""
@@ -210,8 +214,10 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 
 	# While the charge carrier is in the selenium, keep finding the position
 	inBound = True
-	while(inBound):
-
+	stepTotal = float(totalTime) / dt
+	stepCounter = 0
+	while(inBound and stepCounter < stepTotal):
+		stepCounter += 1
 		if threeDim:
 			xt.append([x,y,z,t])
 
@@ -269,7 +275,7 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 			xt.append([x, ymin, z, t])
 		elif z > zmax:
 			xt.append([x, y, zmax, t])
-		else:
+		elif z < zmin:
 			xt.append([x, y, zmin, t])
 	else:
 		if x > xmax:
@@ -278,7 +284,7 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 			xt.append([xmin, y, t])
 		elif y > ymax:
 			xt.append([x, ymax, t])
-		else:
+		elif y < ymin:
 			xt.append([x, ymin, t])
 
 	# convert to numpy array and return the data

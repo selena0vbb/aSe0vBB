@@ -510,9 +510,10 @@ class CarrierSimulation(object):
 			limits=[]
 
 		# Get parameters from the settings necessary for the simulations
-		dtHole = self.settings['DT_HOLES']
-		dtElectron = self.settings['DT_ELECTRONS']
-		muHole, muElectron = self.settings['MU_HOLES'], self.settings['MU_ELECTRONS']# mm^2/(V*us)
+		dtHole = self.settings['DT_HOLES'] # us
+		dtElectron = self.settings['DT_ELECTRONS'] # us
+		muHole, muElectron = self.settings['MU_HOLES'], self.settings['MU_ELECTRONS'] # mm^2/(V*us)
+		totalTimeHoles, totalTimeElectrons = self.settings['TOTAL_TIME_HOLES'], self.settings['TOTAL_TIME_ELECTRONS'] # us
 		maxtime = 0
 		allInduced = []
 		elecAInduced = []
@@ -529,8 +530,8 @@ class CarrierSimulation(object):
 					qElectrons = -qHoles
 
 					# Find path of the electrons and holes at grid point i,j
-					pathHoles = findMotion((binx[i], biny[j]), self.Etot, muHole, dtHole, q=qHoles, limits=limits)
-					pathElectrons = findMotion((binx[i], biny[j]), self.Etot, muElectron, dtElectron, q=qElectrons, limits=limits)
+					pathHoles = findMotion((binx[i], biny[j]), self.Etot, muHole, dtHole, totalTime=totalTimeHoles, q=qHoles, limits=limits)
+					pathElectrons = findMotion((binx[i], biny[j]), self.Etot, muElectron, dtElectron, totalTime=totalTimeElectrons, q=qElectrons, limits=limits)
 
 					qHoleArray, qElectronArray = self.chargeArray(nehpf[i,j], pathHoles.shape[0], pathElectrons.shape[0])
 
