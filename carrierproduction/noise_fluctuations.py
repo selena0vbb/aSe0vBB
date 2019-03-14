@@ -187,8 +187,9 @@ def noise_histogram_parallel():
             flat = event.flattenEvent()
             zmin = min(flat['z'])
             ymin = np.min(np.abs(flat['y']))
+            xmin = np.min(np.abs(flat['x']))
 
-            if ymin < 1.2 and zmin > -0.1:
+            if xmin < 1.9 and ymin < 1.9 and zmin > -0.1:
                 indx.append(i)
 
 
