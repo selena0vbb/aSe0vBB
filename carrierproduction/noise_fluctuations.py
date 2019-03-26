@@ -160,6 +160,7 @@ def testNewgEventCollection():
 def noise_histogram_parallel():
 
     configfilename = "/home/apiers/aSe0vBB/carrierproduction/config.txt"
+    # configfilename = "/home/apiers/mnt/rocks/aSe0vBB/carrierproduction/localconfig.txt"
 
     settings = sc.readConfigFile(configfilename)
 
@@ -187,8 +188,11 @@ def noise_histogram_parallel():
             flat = event.flattenEvent()
             zmin = min(flat['z'])
             ymin = np.min(np.abs(flat['y']))
+            xmin = np.min(np.abs(flat['x']))
+            eevent = np.sum(flat['energy'])
 
-            if ymin < 1.2 and zmin > -0.1:
+            # if xmin < 1.9 and ymin < 1.9 and zmin > -0.1:
+            if xmin < 1.9 and ymin < 1.9 and zmin > -0.1:
                 indx.append(i)
 
 

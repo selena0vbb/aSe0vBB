@@ -9,15 +9,18 @@ except:
 	pass
 import numpy as np
 import sys
+import warnings
 import seleniumconfig as sc
 from multiprocessing import Pool
 from pathlib import Path
 import tqdm
+import cexprtk
 
 # add the EM plot module to the path and import it
 sys.path.append('/home/apiers/aSe0vBB/EM Analysis')
+sys.path.append('/home/apiers/mnt/rocks/aSe0vBB/EM Analysis')
 print(sys.version)
-from plot import readComsolFileGrid, findMotion, inducedCharge, inducedChargeSingle
+from plot import readComsolFileGrid, readComsolFileGrid3d, findMotion, inducedCharge, inducedChargeSingle, interpEField2D, interpEField3D
 
 
 class gEvent(object):
@@ -33,7 +36,7 @@ class gEvent(object):
 		if geometry:
 			self.geomtry = geometry
 		else:
-			self.geometry = {'x':(-5, 5), 'y':(-5, 5), 'z':(-0.1, 0.1)}
+			self.geometry = {'x':(-5, 5), 'y':(-2, 2), 'z':(-0.1, 0.1)}
 
 
 	# Define Setters
@@ -177,31 +180,89 @@ class gEvent(object):
 
 		return val, [binx, biny], ax, fig
 
-
-	def createCarriers(self, **kwargs):
+	def plotHN(self, varname=("x", "y", "z"), fname="energy", testbins=[200, 200, 200]):
 		"""
-		Function that creates carriers from the energy distribution of the incoming gamma rays
+		Bins a function into N different axis. By default, this function bins energy into x,y,z axis
 		"""
-		Wehp = 0.05 # keV. 50 eV per electron hole pair
 
-		# create histogram to bin the data in 1 um increments. Pass this into EM model
-		# number of z and y bins depend on the geometry
-		nbinx, nbiny = int(np.diff(self.geometry["y"])*1000), int(np.diff(self.geometry["z"])*1000)
-		val, bins, ax, fig = self.plotH2(nbins=[nbinx, nbiny], delete=True)
+		# Extract the variables and function from the flatten event data
+		flatData = self.flattenEvent()
+		var = [flatData[v] for v in varname]
+		func = flatData[fname] 
 
-		# get center points of all bins
-		binxCenter = (np.array(bins[0][0:-1]) + np.array(bins[0][1:]))/2.
-		binyCenter = (np.array(bins[1][0:-1]) + np.array(bins[1][1:]))/2.
+		# Convert the list of variables into a NxD array (N number of entries, D dimensions)
+		var = np.array(var).T
 
-		# histogrammed data are in a (nbinx x nbiny) array. Simply divide by Wehp to get the energy as a distribution of position
-		nehp = np.round(val/Wehp)
+		# histogram the data
+		val, edges = np.histogramdd(var, bins=testbins, weights=func)
+
+		# Compute bin centers from the edges
+		binCenters = [edge[:-1] + np.diff(edge)/2 for edge in edges]
+
+		return val, binCenters
+
+
+	def createCarriers(self, wehpFunction=None, efield=None, **kwargs):
+		"""
+		Function that creates carriers from the energy distribution of the incoming gamma rays. Standard is to create in 3D
+		Inputs:
+			Wehp - work function of amorphous selenium
+			kwargs - key word arguments from the config file of the settings file
+		Outputs
+			nehp - (n1 x n2 x ... ni x ... x nN) array of the number of electron hole pairs created at each position given the energy and work function
+			nehpFluctuations - (n1 x n2 x ... x ni x ... x nN) array of the poisson fluctuations of each pair production
+			binCenters - list of the bincenters along each (x,y,z) axis
+			[xv, yv, zv] - indexes in the nehp matrix where the values are non zero
+		"""
+
+		# Create the bins for the histogramming of energy events
+		binnames = ["X", "Y", "Z"]
+		bins = []
+		for name in binnames:
+			axisMinValue = kwargs["%s_MIN"%name]
+			axisMaxValue = kwargs["%s_MAX"%name]
+			dx = kwargs["D%s"%name]
+			bins.append(np.arange(axisMinValue, axisMaxValue+dx, dx))
+
+		val, binCenters = self.plotHN(varname=("x", "y", "z"), fname="energy", testbins=bins)
+
+		# Find the non zero bin entries
+		if not kwargs["THREE_DIMENSIONS"]:
+			# If working in 2D projection, collapse the x axis
+			val = np.sum(val, axis=0, keepdims=True)
+
+		# x, y, z arrays of the index of the non zero elements of the nehpf array
+		xv, yv, zv = np.nonzero(val)
+
+		# Find the work function with E Field dependence
+		if wehpFunction and efield:
+			wehp = 0.05*np.ones(val.shape)
+			# Interpolate E field on non zero bin centers
+			if not kwargs["THREE_DIMENSIONS"]:
+				Eyz = interpEField2D(binCenters[1][yv], binCenters[2][zv], efield)
+				EMag = np.sqrt(np.sum(Eyz**2, axis=1))
+			else:
+				Exyz= interpEField3D(binCenters[0][xv], binCenters[1][yv], binCenters[2][zv], efield)
+				EMag = np.sqrt(np.sum(Exyz**2, axis=1))
+
+			# Iterate over the points with non zero nehp and find the work function at that position
+			for i in range(xv.size):
+				wehpFunction.symbol_table.variables["E"] = EMag[i]
+				wehp[xv[i], yv[i], zv[i]] = wehpFunction()
+		else:
+			# Use standard value of 50 eV if no E field information is passed\
+			wehp = 0.05*np.ones(val.shape)
+
+
+		# histogrammed data are in a (nbinx x nbiny x nbinz) array. Simply divide by Wehp to get the energy as a distribution of position
+		nehp = np.round(val/wehp)
 		if kwargs['CARRIER_GENERATION_POISSON']:
 			nehpFluctuation = np.random.poisson(nehp) - nehp
 		else:
 			nehpFluctuation = np.zeros(nehp.shape)
 
-		# Add noise to number of electron hole pair
-		return nehp, nehpFluctuation, binxCenter, binyCenter
+		# Return
+		return nehp, nehpFluctuation, binCenters, xv, yv, zv
 
 class gEventCollection(object):
 	"""docstring for gEventCollection"""
@@ -261,73 +322,6 @@ class gEventCollection(object):
 
 		return foundEvent
 
-	def plotAngularDistribution1D(self, nEvents=None, style='polar', showPlot=True):
-		np.seterr(all='raise')
-		if nEvents == None:
-			nEvents = self.totalNEvents
-
-		thetalist = []
-		# Iterate over the prescirbed number of events
-		for i in range(nEvents):
-			# print(i)
-			event = self.collection[i]
-			flatdata = event.flattenEvent()
-
-			# Need to 2d histogram
-			xbins = np.arange(-2000, 2000, 4)
-			zbins = np.arange(-100, 100)
-			trackHist, _, _ = np.histogram2d(np.array(flatdata['x'])*1000, np.array(flatdata['z'])*1000, bins=[xbins, zbins], weights=flatdata['energy'])
-
-			# Find non zero elements of the histogram. Find associated x and z components
-			xindx, zindx = np.nonzero(trackHist)
-
-			if xindx.size == 0 or zindx.size == 0 or np.sum(flatdata['energy']) < 100:
-				continue
-			else:
-				# perform a linear fit of the x and z data
-				try:
-					# Filter out outliers (k shell xray emission)
-					xmask = np.abs(xindx - np.mean(xindx)) < 2.5*np.std(xindx)
-					zmask = np.abs(zindx - np.mean(zindx)) < 2.5*np.std(zindx)
-					fmask = np.logical_and(zmask, xmask)
-					xdata = xbins[xindx[fmask]]
-					zdata = zbins[zindx[fmask]]
-					energyWeight = trackHist[(xindx[fmask], zindx[fmask])]
-					slope, intercept = np.polyfit(zdata, xdata, 1)#, w=energyWeight)
-					plt.plot(zdata, xdata, '*')
-					plt.plot(zdata, zdata*slope+intercept)
-					print(slope)
-					# convert slope to theta
-					theta = np.arctan(slope) + 3*np.pi/2
-					# add to array
-					thetalist.append(theta)
-				except:
-					pass
-
-		plt.show()
-
-		# histogram the theta data
-		nbins = 100
-		thetaBins = np.linspace(0, 2*np.pi, nbins)
-		thetaAxis = thetaBins[1:] - np.diff(thetaBins)[0]
-		thetaHist, _ = np.histogram(thetalist, bins=thetaBins)
-		if style == 'polar':
-			ax = plt.subplot(111, projection='polar')
-			ax.bar(thetaAxis, thetaHist, width=2*np.pi/nbins, bottom=0.0)
-		elif style == 'xy':
-			fig, ax = plt.subplots()
-			ax.hist(thetalist, bins=thetaBins, linewidth=2, histtype='step')
-		else:
-			print('Invalid plotting style')
-			ax = None
-
-		if showPlot:
-			plt.show()
-
-		return thetaBins, thetaHist, ax
-
-
-
 
 
 class CarrierSimulation(object):
@@ -339,38 +333,33 @@ class CarrierSimulation(object):
 		self.emfilname = emfilename
 		self.configfile = configfile
 
+		# Default work function of 0.05 keV/ehp
+		self.symbolTable = cexprtk.Symbol_Table({"E":10}, add_constants=True)
+		self.wehpExpression = cexprtk.Expression("0.05", self.symbolTable)
+
+		# Read and store settings
+		print('Read config')
+		if configfile:
+			self.settings = sc.readConfigFile(configfile)
+			self.applySettings()
+		else:
+			self.settings = None
+			warnings.warn("No Settings File Read. Please read (or create) class settings and run applySettings().")
+			return
+
+		# Read and store particle data
 		print('Read Geant4 Simulation Data')
 		if type(eventCollection) is str:
 			self.eventCollection = gEventCollection(eventCollection)
 		else:
 			self.eventCollection = eventCollection
 
-		# Read the emfile and store data in the class
+		# Read and store emdata
 		print('Read Comsol EM Data')
 		if emfilename:
-			_, self.x, self.y, self.data = readComsolFileGrid(emfilename)
+			self.newEmFile(emfilename)
 		else:
-			self.x = self.y = self.data = []
-
-
-
-		# Read and store settings
-		print('Read config')
-		if configfile:
-			self.settings = sc.readConfigFile(configfile)
-		else:
-			self.settings = None
-
-		# Perform initialization actions based on the settings
-		print('Apply Relevant Settings')
-		if self.settings['SCALE_WEIGHTED_PHI']:
-			self.computeScaleFactor()
-		else:
-			self.scale = 1
-
-		self.createFields()
-		self.outputdir = self.settings['OUTPUT_DIR']
-		self.outputfile = self.settings['OUTPUT_FILE']
+			self.x = self.y = self.z = self.data = []
 
 	def newEmFile(self, emfilename):
 		"""
@@ -378,7 +367,12 @@ class CarrierSimulation(object):
 		Inputs:
 			emfilename - string of the path to the comsol simulation file
 		"""
-		_, self.x, self.y, self.data = readComsolFileGrid(emfilename)
+		if self.use3D:
+			_, pos, self.data = readComsolFileGrid3d(emfilename)
+			self.x, self.y, self.z = pos[0], pos[1], pos[2]
+		else:
+			_, self.x, self.y, self.data = readComsolFileGrid(emfilename)
+			self.z = np.array([])
 		self.createFields()
 
 	def newEventCollection(self, eventCollection):
@@ -395,6 +389,25 @@ class CarrierSimulation(object):
 	def newSettings(self, configfile):
 
 		self.settings = sc.readConfigFile(configfile)
+
+	def applySettings(self):
+		if self.settings:
+			print('Apply Relevant Settings')
+			if self.settings['SCALE_WEIGHTED_PHI']:
+				self.computeScaleFactor()
+			else:
+				self.scale = 1
+			self.outputdir = self.settings['OUTPUT_DIR']
+			self.outputfile = self.settings['OUTPUT_FILE']
+			self.use3D = self.settings['THREE_DIMENSIONS']
+
+			# Create the function to calculate nehp
+			self.symbolTable = cexprtk.Symbol_Table({"E":10}, add_constants=True)
+			self.wehpExpression = cexprtk.Expression(self.settings['WORK_FUNCTION'], self.symbolTable)
+
+
+		else:
+			warnings.warn("No settings to apply. Returning without applying settings.")
 
 	def computeScaleFactor(self, depth=[0.5, 1], width=[0.35, 0.65]):
 		"""
@@ -424,26 +437,43 @@ class CarrierSimulation(object):
 		"""
 
 		# Gets the EM information
-		x, y, data = self.x, self.y, self.data
+		x, y, z, data = self.x, self.y, self.z, self.data
 		convFactor = self.settings['UNIT_CONVERSION_FACTOR']
 		x *= convFactor
-		y *= convFactor # convert m to mm
+		y *= convFactor
+		z *= convFactor # convert m to mm
+		fieldScale = self.settings['FIELD_SCALE']
 
-		# Parses the data depending on the mode
-		if self.settings['CHARGE_DIFFERENCE']:
-			phiAll, ExAll, EyAll = data[:,0:np.amin(data.shape):3], data[:,1:np.amin(data.shape):3], data[:,2:np.amin(data.shape):3]
-			wPhiA = [x, y, phiAll[:,-2]]
-			wPhiB = [x, y, phiAll[:,-1]]
-			wPhi = [wPhiA, wPhiB]
-			Ex, Ey = ExAll[:,self.settings['VOLTAGE_SWEEP_INDEX']]/convFactor, EyAll[:,self.settings['VOLTAGE_SWEEP_INDEX']]/convFactor # in V/mm
+		# Parses the data depending on the mode. Parse 2D and 3D simulations differently.
+		if self.use3D:
+			phiAll, ExAll, EyAll, EzAll = data[:,0:np.amin(data.shape):4], data[:,1:np.amin(data.shape):4], data[:,2:np.amin(data.shape):4], data[:,3:np.amin(data.shape):4] 
+			if self.settings['CHARGE_DIFFERENCE']:
+				wPhiA = [x, y, z, phiAll[:,-2]]
+				wPhiB = [x, y, z, phiAll[:,-1]]
+				wPhi = [wPhiA, wPhiB]
+			else:
+				wPhi = [x, y, z, phiAll[:,-1]]
+
+			Ex, Ey, Ez = ExAll[:,self.settings['VOLTAGE_SWEEP_INDEX']]/convFactor, EyAll[:,self.settings['VOLTAGE_SWEEP_INDEX']]/convFactor, EzAll[:,self.settings['VOLTAGE_SWEEP_INDEX']]/convFactor # in V/mm
+
+			# Creates an instance variable of the E field and wPhi
+			self.Etot = [x, y, z, Ex*fieldScale, Ey*fieldScale, Ez*fieldScale]
+			self.wPhi = wPhi
+
 		else:
 			phiAll, ExAll, EyAll = data[:,0:np.amin(data.shape):3], data[:,1:np.amin(data.shape):3], data[:,2:np.amin(data.shape):3]
-			wPhi = [x, y, phiAll[:,-1]]
+			if self.settings['CHARGE_DIFFERENCE']:
+				wPhiA = [x, y, phiAll[:,-2]]
+				wPhiB = [x, y, phiAll[:,-1]]
+				wPhi = [wPhiA, wPhiB]
+			else:
+				wPhi = [x, y, phiAll[:,-1]]
+			
 			Ex, Ey = ExAll[:,self.settings['VOLTAGE_SWEEP_INDEX']]/convFactor, EyAll[:,self.settings['VOLTAGE_SWEEP_INDEX']]/convFactor # in V/mm
 
-		# Creates an instance variable of the E field and wPhi
-		self.Etot = [x, y, Ex, Ey]
-		self.wPhi = wPhi
+			# Creates an instance variable of the E field and wPhi
+			self.Etot = [x, y, Ex*fieldScale, Ey*fieldScale]
+			self.wPhi = wPhi
 
 		return None
 
@@ -499,70 +529,77 @@ class CarrierSimulation(object):
 
 		# Gets the carrier information
 		event = self.eventCollection.collection[eventIdx]
-		nehp, nehpNoise, binx, biny = event.createCarriers(**self.settings)
+		nehp, nehpNoise, bins, xv, yv, zv = event.createCarriers(self.wehpExpression, self.Etot, **self.settings)
 		nehpf = nehp + nehpNoise	# number of electron hole pairs w/ fluctuations is the average plus the noise noise determined by the specific model
 		nehpf = nehpf.astype(int)
 
 		# Set up the boundaries of the em simulation
 		if self.settings['USE_BOUNDARY_LIMITS']:
-			limits = [self.settings['X_MIN'], self.settings['X_MAX'], self.settings['Y_MIN'], self.settings['Y_MAX']]
+			if self.use3D:
+				limits = [self.settings['X_MIN'], self.settings['X_MAX'], self.settings['Y_MIN'], self.settings['Y_MAX'], self.settings['Z_MIN'], self.settings['Z_MAX']]
+			else:
+				limits = [self.settings['Y_MIN'], self.settings['Y_MAX'], self.settings['Z_MIN'], self.settings['Z_MAX']]
 		else:
 			limits=[]
 
 		# Get parameters from the settings necessary for the simulations
-		dtHole = self.settings['DT_HOLES']
-		dtElectron = self.settings['DT_ELECTRONS']
-		muHole, muElectron = self.settings['MU_HOLES'], self.settings['MU_ELECTRONS']# mm^2/(V*us)
+		dtHole = self.settings['DT_HOLES'] # us
+		dtElectron = self.settings['DT_ELECTRONS'] # us
+		muHole, muElectron = self.settings['MU_HOLES'], self.settings['MU_ELECTRONS'] # mm^2/(V*us)
+		totalTimeHoles, totalTimeElectrons = self.settings['TOTAL_TIME_HOLES'], self.settings['TOTAL_TIME_ELECTRONS'] # us
 		maxtime = 0
 		allInduced = []
 		elecAInduced = []
 		elecBInduced = []
-		# iterate over all the grid points of electron hole pairs
-		for i in range(binx.shape[0]):
-			for j in range(biny.shape[0]):
-				if nehpf[i,j] == 0:
-					pass
-				else:
-					# Find trajectory of this group of particles
-					# Assign the sign of the charge of holes and electrons
-					qHoles = 1
-					qElectrons = -qHoles
 
-					# Find path of the electrons and holes at grid point i,j
-					pathHoles = findMotion((binx[i], biny[j]), self.Etot, muHole, dtHole, q=qHoles, limits=limits)
-					pathElectrons = findMotion((binx[i], biny[j]), self.Etot, muElectron, dtElectron, q=qElectrons, limits=limits)
+		
+		# Find the number of points in the nehp array that are nonzero. Iterate over those
+		for i in range(xv.size):
 
-					qHoleArray, qElectronArray = self.chargeArray(nehpf[i,j], pathHoles.shape[0], pathElectrons.shape[0])
+			# Find trajectory of this group of particles
+			# Assign the sign of the charge of holes and electrons
+			qHoles = 1
+			qElectrons = -qHoles
 
-					# Keep the longest time for reference in
-					try:
-						if np.max([pathHoles[-1,2], pathElectrons[-1,2]]) > maxtime:
-							maxtime = np.max([pathHoles[-1,2], pathElectrons[-1,2]])
-					except:
-						pass
+			# Find path of the electrons and holes given the location by (xi), yi, zi
+			if self.use3D:
+				pathHoles = findMotion((bins[0][xv[i]], bins[1][yv[i]], bins[2][zv[i]]), self.Etot, muHole, dtHole, totalTime=totalTimeHoles, q=qHoles, limits=limits)
+				pathElectrons = findMotion((bins[0][xv[i]], bins[1][yv[i]], bins[2][zv[i]]), self.Etot, muElectron, dtElectron, totalTime=totalTimeElectrons, q=qElectrons, limits=limits)
+			else:
+				pathHoles = findMotion((bins[1][yv[i]], bins[2][zv[i]]), self.Etot, muHole, dtHole, totalTime=totalTimeHoles, q=qHoles, limits=limits)
+				pathElectrons = findMotion((bins[1][yv[i]], bins[2][zv[i]]), self.Etot, muElectron, dtElectron, totalTime=totalTimeElectrons, q=qElectrons, limits=limits)
 
-					if self.settings['CHARGE_DIFFERENCE']:
-						# Compute difference in induced charge, qA-qB, for both electrons and holes. Incorporates scale factor (which is =1 for no scaling)
-						qAHoles, qBHoles, _ = inducedCharge(self.wPhi[0], self.wPhi[1], pathHoles, q=qHoleArray, roundFinalVal=self.settings['ROUND_FINAL_WEIGHTED_PHI'])
-						qAElectrons, qBElectrons, _ = inducedCharge(self.wPhi[0], self.wPhi[1], pathElectrons, q=qElectronArray, roundFinalVal=self.settings['ROUND_FINAL_WEIGHTED_PHI'])
-						indChargeHoles = qAHoles - self.scale * qBHoles
-						indChargeElectrons = qAElectrons - self.scale * qBElectrons
+			qHoleArray, qElectronArray = self.chargeArray(nehpf[xv[i], yv[i], zv[i]], pathHoles.shape[0], pathElectrons.shape[0])
 
-						# append to  list of induced charge
-						allInduced.append(indChargeHoles)
-						allInduced.append(indChargeElectrons)
-						if self.settings['SAVE_PARTIAL_PULSES']:
-							elecAInduced.append(qAHoles)
-							elecAInduced.append(qAElectrons)
-							elecBInduced.append(self.scale * qBHoles)
-							elecBInduced.append(self.scale * qBElectrons)
+			# Keep the longest time for reference to create the total pulse at the end
+			try:
+				if np.max([pathHoles[-1,-1], pathElectrons[-1,-1]]) > maxtime:
+					maxtime = np.max([pathHoles[-1,-1], pathElectrons[-1,-1]])
+			except:
+				pass
 
-					else:
-						# Compute induced charge on a single electrode
-						indChargeHoles = inducedChargeSingle(self.wPhi, pathHoles, q=qHoleArray)
-						indChargeElectrons = inducedChargeSingle(self.wPhi, pathElectrons, q=qElectronArray)
-						allInduced.append(indChargeHoles)
-						allInduced.append(indChargeElectrons)
+			if self.settings['CHARGE_DIFFERENCE']:
+				# Compute difference in induced charge, qA-qB, for both electrons and holes. Incorporates scale factor (which is =1 for no scaling)
+				qAHoles, qBHoles, _ = inducedCharge(self.wPhi[0], self.wPhi[1], pathHoles, q=qHoleArray, roundFinalVal=self.settings['ROUND_FINAL_WEIGHTED_PHI'])
+				qAElectrons, qBElectrons, _ = inducedCharge(self.wPhi[0], self.wPhi[1], pathElectrons, q=qElectronArray, roundFinalVal=self.settings['ROUND_FINAL_WEIGHTED_PHI'])
+				indChargeHoles = qAHoles - self.scale * qBHoles
+				indChargeElectrons = qAElectrons - self.scale * qBElectrons
+
+				# append to  list of induced charge
+				allInduced.append(indChargeHoles)
+				allInduced.append(indChargeElectrons)
+				if self.settings['SAVE_PARTIAL_PULSES']:
+					elecAInduced.append(qAHoles)
+					elecAInduced.append(qAElectrons)
+					elecBInduced.append(self.scale * qBHoles)
+					elecBInduced.append(self.scale * qBElectrons)
+
+			else:
+				# Compute induced charge on a single electrode
+				indChargeHoles = inducedChargeSingle(self.wPhi, pathHoles, q=qHoleArray)
+				indChargeElectrons = inducedChargeSingle(self.wPhi, pathElectrons, q=qElectronArray)
+				allInduced.append(indChargeHoles)
+				allInduced.append(indChargeElectrons)
 
 		timeHoles = np.arange(0, maxtime + dtHole, dtHole)
 		timeElectrons = np.arange(0, maxtime + dtElectron, dtElectron)
@@ -692,19 +729,14 @@ def scaleWeightPhi(wPhiA, wPhiB, dimSize, depth=0.5, xrange=[0.35, 0.65]):
 
 	return np.mean(phiDiffA/phiDiffB)
 
-def filterSignal(signal, time, freqResponseFile):
+def readFreqResponse(freqResponseFile):
 	"""
-	Filters the signal given the frequency response of the circuit provided in a .txt file
-	Inputs:
-		signal - Nx1 dimensional numpy array containing the time domain singal
-		time - Nx1 dimensional numpy array of time associated with the signale
-		freqResponseFile - spice frequency response file name for the amplification circuit
+	Reads the LTSpice frequency response. Outputs frequency and gain in dB
 	"""
-
 	f = open(freqResponseFile)
 
 	fcircuit = []
-	gain = []
+	gaindB = []
 
 	# Clear header
 	f.readline()
@@ -715,13 +747,26 @@ def filterSignal(signal, time, freqResponseFile):
 
 		# Append frequency and gain
 		fcircuit.append(float(lineElement[0]))
-		gain.append(float(lineElement[1].split('dB')[0][1:]))
+		gaindB.append(float(lineElement[1].split('dB')[0][1:]))
 
 
 	fcircuit = np.array(fcircuit)
-	gain = np.array(gain)
+	gaindB = np.array(gaindB)
 
 	f.close()
+
+	return fcircuit, gaindB
+
+def filterSignal(signal, time, freqResponseFile):
+	"""
+	Filters the signal given the frequency response of the circuit provided in a .txt file
+	Inputs:
+		signal - Nx1 dimensional numpy array containing the time domain singal
+		time - Nx1 dimensional numpy array of time associated with the signale
+		freqResponseFile - spice frequency response file name for the amplification circuit
+	"""
+
+	fcircuit, gain = readFreqResponse(freqResponseFile)
 
 	dt = time[1] - time[0]
 	N = signal.size

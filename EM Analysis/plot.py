@@ -1,6 +1,8 @@
 import numpy as np
 try:
 	import matplotlib.pyplot as plt
+	from matplotlib.colors import LogNorm
+	import palettable
 except:
 	pass
 import scipy.interpolate as scp
@@ -66,6 +68,28 @@ def readComsolFileGrid(filename):
 
 	return header, x, y, func
 
+def readComsolFileGrid3d(filename):
+	header, data = [], []
+	file = open(filename, 'r')
+
+	# read each line and populate data array
+	for lines in file:
+
+		# Separate into header and data based of leading % sign.
+		if lines[0] == '%':
+			header.append(re.sub('[\n%]','',lines.replace(' ', '')))
+		else:
+			# Split the line into individual values and convert to floats
+			splitString = re.sub('[\n]','',lines).split()
+			data.append([float(i)for i in splitString])
+
+	file.close()
+	data = np.array(data)
+	func = data[:,np.arange(3,len(splitString))]
+	x, y, z = np.unique(data[:,0]), np.unique(data[:,1]), np.unique(data[:,2])
+
+	return header, (x,y,z), func
+
 def takeSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12):
 	"""
 	Performs the same action as Plot Slice except returns the data instead of the figure
@@ -86,17 +110,17 @@ def takeSlice(data, sliceIdx, sliceVal, funcIdx, eps=1e-12):
 	return slicedData
 
 
-def plotPhi(pos, data, funcIdx, type='contour', figH=None, color='Reds'):
+def plotPhi(pos, data, funcIdx, type='contour', figH=None, color=None, ncontour=9):
 	"""
 	Plots the potential (phi) of a 2D slice of comsol simulation
 
 	Inputs:
-		data - NxM numpy array of Comsol data organized in columns of axis position and then columns of the function values
+		pos - (x,y) data
+		data - comsol data in regular grid format. If multiple columns supplied, selcts one with funcIdx
 		funcIdx - index of the function to be plotted in the data set (column number)
-		eps - parameter to select similar values in a slice The way that Comsol sets up the grid means there are very
-			small variations even within what we would consider one slice. The eps makes it so we include everything
-			within the range of sliceVal +/- eps
 		figH - tuple with (fig, ax)
+		color - brewer2mpl color to use
+		colortype - brewer2mpl color scheme to use. sequential, diverging, or qualitative
 	Outputs:
 		figHandle - handle to the python plot created by the function
 
@@ -116,9 +140,12 @@ def plotPhi(pos, data, funcIdx, type='contour', figH=None, color='Reds'):
 		ax = figH[1]
 
 	# Plot the interpolated values
+
+	if color == None:
+		color = brewer2mpl.get_map('Reds', 'sequential', ncontour).mpl_colormap
 	if type is 'contour':
-		ax.contour(pos[0], pos[1], phi, 8, linewidth=0.5, colors='k')
-		cax = ax.contourf(pos[0], pos[1], phi, 8, cmap=brewer2mpl.get_map(color, 'sequential', 8).mpl_colormap, vmin=np.amin(phi), vmax=np.amax(phi))
+		ax.contour(pos[0], pos[1], phi, ncontour, linewidth=0.5, colors='k')
+		cax = ax.contourf(pos[0], pos[1], phi, ncontour, cmap=color, vmin=np.amin(phi), vmax=np.amax(phi))
 		return fig, ax, cax
 
 	elif type is 'mesh':
@@ -131,17 +158,23 @@ def plotPhi(pos, data, funcIdx, type='contour', figH=None, color='Reds'):
 		print('Error: a type of %s is not a valid input', type)
 		return None
 
-def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
+
+
+def findMotion(xi, E, vDrift, dt, totalTime=100, method='linear', q=-1.6e-19, limits=[]):
 	"""
 	Computes the position as a function of time (and therefore can be used with the weighted potential) using the drift velocity and E fields of the charge particle
 	The units must be consistent. For example the units of xi and the distance in vDrift must be the same. Same goes with xi and electric field.
 	Computation done on a 2D slice (assumes translational invariance in one direction)
 
 	Inputs
-		xi - initial position. Tuple of 2 points, x,y
-		E - the electric field at all point in the model. Nx4 matrix where N is the number of different grid points and 4 corresponds to x,y,Ex,Ey to fully describe the vector field
+		xi - initial position. Tuple of 2 or 3 points, x,y,z
+		E - the electric field at all point in the model. Nx4 or Nx6 matrix where N is the number of different grid points and 4 (6) corresponds to the 2 (3) positions and their corresponding E fields
 		vDrift - drift velocity (length^2/(V*time))
-		dt = time step
+		dt - time step of the motion
+		totalTime - maximum time allowed to calculated the motion over. Prevents code getting stuck when E field is 0
+		method - interpolation method
+		q - fundamental unit of charge. The sign is used to determine what direction the charges go
+		limits - physical (or self imposed) limits of the detector geometry. Once it goes out of bounds, the code stops and the motion is returned
 	Outputs
 		xt - the position of the function as a function of time. Nx3 matrix where N is the number of time steps and columns are x,y,t
 	"""
@@ -150,12 +183,22 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 	t = 0
 	x = xi[0]
 	y = xi[1]
+	if len(xi) == 3:
+		threeDim = True
+		z = xi[2]
+	else:
+		threeDim = False
+
 	if not limits:
 		xmin, xmax = np.amin(E[0]), np.amax(E[0])
 		ymin, ymax = np.amin(E[1]), np.amax(E[1])
+		if threeDim:
+			zmin, zmax = np.amin(E[2]), np.amax(E[2])
 	else:
 		xmin, xmax = limits[0], limits[1]
 		ymin, ymax = limits[2], limits[3]
+		if threeDim:
+			zmin, zmax = limits[4], limits[5]
 
 
 	# Check to ensure the initial points is within the limits. Otherwise return None
@@ -165,24 +208,58 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 	xt = []
 
 	# Create interpolating functions for the E fields
-	ExInter = scp.interp2d(E[0], E[1], np.reshape(E[2],(E[1].size, E[0].size)), kind=method)
-	EyInter = scp.interp2d(E[0], E[1], np.reshape(E[3],(E[1].size, E[0].size)), kind=method)
+	if threeDim:
+		ExInter = scp.RegularGridInterpolator((E[0], E[1], E[2]), np.reshape(E[3], (E[0].size, E[1].size, E[2].size), order='F'), bounds_error=False, fill_value=None)
+		EyInter = scp.RegularGridInterpolator((E[0], E[1], E[2]), np.reshape(E[4], (E[0].size, E[1].size, E[2].size), order='F'), bounds_error=False, fill_value=None)
+		EzInter = scp.RegularGridInterpolator((E[0], E[1], E[2]), np.reshape(E[5], (E[0].size, E[1].size, E[2].size), order='F'), bounds_error=False, fill_value=None)
+	else:
+		ExInter = scp.RegularGridInterpolator((E[0], E[1]), np.reshape(E[2], (E[0].size, E[1].size), order='F'), bounds_error=False, fill_value=None)
+		EyInter = scp.RegularGridInterpolator((E[0], E[1]), np.reshape(E[3], (E[0].size, E[1].size), order='F'), bounds_error=False, fill_value=None)
 
 	# While the charge carrier is in the selenium, keep finding the position
-	while(x < xmax and x > xmin and y < ymax and y > ymin):
-		xt.append([x,y,t])
+	inBound = True
+	stepTotal = float(totalTime) / dt
+	stepCounter = 0
+	while(inBound and stepCounter < stepTotal):
+		stepCounter += 1
+		if threeDim:
+			xt.append([x,y,z,t])
 
-		# Interpolate for values of Ex and Ey at the specific position
-		Ex = ExInter(x, y)
-		Ey = EyInter(x, y)
+			# Interpolate for values of Ex and Ey at the specific position
+			Ex = ExInter([x, y, z])
+			Ey = EyInter([x, y, z])
+			Ez = EzInter([x, y, z])
 
-		# Solve equation of motion
-		xNext = x + vDrift*Ex*np.sign(q)*dt
-		yNext = y + vDrift*Ey*np.sign(q)*dt
+			# Solve equation of motion
+			xNext = x + vDrift*Ex[0]*np.sign(q)*dt
+			yNext = y + vDrift*Ey[0]*np.sign(q)*dt
+			zNext = z + vDrift*Ez[0]*np.sign(q)*dt
 
-		# Assign the new version of x, y, and t
-		x = xNext
-		y = yNext
+			# Assign the new version of x, y, and t
+			x = xNext
+			y = yNext
+			z = zNext
+
+			inBound = x < xmax and x > xmin and y < ymax and y > ymin and z < zmax and z > zmin
+
+		else:
+			xt.append([x,y,t])
+
+			# Interpolate for values of Ex and Ey at the specific position
+			Ex = ExInter([x, y])
+			Ey = EyInter([x, y])
+
+			# Solve equation of motion
+			xNext = x + vDrift*Ex[0]*np.sign(q)*dt
+			yNext = y + vDrift*Ey[0]*np.sign(q)*dt
+
+			# Assign the new version of x, y, and t
+			x = xNext
+			y = yNext
+
+			inBound = x < xmax and x > xmin and y < ymax and y > ymin
+
+
 		t = t + dt
 	
 	if np.isnan(x):
@@ -191,34 +268,89 @@ def findMotion(xi, E, vDrift, dt, method='linear', q=-1.6e-19, limits=[]):
 		y = xt[-1][1]
 
 	# Add value at the limit
-	if x > xmax:
-		xt.append([xmax, y, t])
-	elif x < xmin:
-		xt.append([xmin, y, t])
-	elif y > ymax:
-		xt.append([x, ymax, t])
+	if threeDim:
+		if x > xmax:
+			xt.append([xmax, y, z, t])
+		elif x < xmin:
+			xt.append([xmin, y, z, t])
+		elif y > ymax:
+			xt.append([x, ymax, z, t])
+		elif y < ymin:
+			xt.append([x, ymin, z, t])
+		elif z > zmax:
+			xt.append([x, y, zmax, t])
+		elif z < zmin:
+			xt.append([x, y, zmin, t])
 	else:
-		xt.append([x, ymin, t])
+		if x > xmax:
+			xt.append([xmax, y, t])
+		elif x < xmin:
+			xt.append([xmin, y, t])
+		elif y > ymax:
+			xt.append([x, ymax, t])
+		elif y < ymin:
+			xt.append([x, ymin, t])
 
 	# convert to numpy array and return the data
 	return np.array(xt)
 
-def plotEField(Efield):
+def plotEField(field, cmap=None, type="mag", figH=None, norm="log"):
 	"""
-	Makes a vector field plot of the electric field using matplotlib
+	Plots the vector field or magnitude of the given electrid field
 
 	Inputs:
-		Efield - list in the form [x, y, Ex, Ey] just like the other functions.
+		field - list in the form [x, y, Ex, Ey] just like the other functions. x and y here are conventions for the 
 				x - Nx1 numpy array of x data points
 				y - Mx1 numpy array of y data points
-				Ex - (M*N)x1 numpy array corresponding to an Ex at every point on the grid
-				Ey - (M*N)x1 numpy array corresponding to an Ey at every point on the grid
+				Ex - (N*M)x1 numpy array corresponding to an Ex at every point on the grid
+				Ey - (N*M)x1 numpy array corresponding to an Ey at every point on the grid
+		cmap - matplotlib colormap
+		type - "mag" for cont
 	Outputs:
 		ax - handle to the axis of the created figure
 	"""
 
-	# Paceholder code
-	return None
+	# Define default colormap
+	if not cmap:
+		cmap = palettable.cmocean.sequential.Amp_20.mpl_colormap
+
+	# Define normalization
+	if norm == "log":
+		norm = LogNorm()
+	else:
+		norm = None
+
+	if figH:
+		fig, ax = figH[0], figH[1]
+	else:
+		fig, ax = plt.subplots(1, 1, figsize=(14,9))
+
+	# Generate x-y pairs
+	x = field[0]
+	y = field[1]
+
+	Ex = np.reshape(field[2], (x.size, y.size))
+	Ey = np.reshape(field[3], (x.size, y.size))
+	Ez = np.reshape(field[4], (x.size, y.size))
+
+	# Plot results
+	if type == "mag":
+		
+		# Compute graph value and axis
+		Emag = np.sqrt(Ex**2 + Ey**2 + Ez**2)
+		extent = [np.min(x), np.max(x), np.min(y), np.max(y)]
+		im = ax.imshow(Emag.T, origin="lower", interpolation="bilinear", aspect="auto", extent=extent, cmap=cmap, norm=norm)
+		
+		# Return the figure
+		return fig, ax, im
+
+	elif type == "vector":
+		Print("Not yet implemented")
+		return None
+	else:
+		Print("Type: %s not supported"%type)
+		return None
+
 
 
 def interpEField2D(x, y, E, method='linear'):
@@ -226,8 +358,8 @@ def interpEField2D(x, y, E, method='linear'):
 	Wrapper function for interpolating points of the Efield over the Comsol grid
 
 	Inputs:
-		x - single value or list of x positions
-		y - single value or list of y positions
+		x - single value or a 1D array of x positions
+		y - single value or a 1D of y positions
 		E - list containing x, y grid data and E field data
 	Outputs:
 		EInterp - interpolated E field. Nx2 numpy array where N is the number of xy coordinate pairs
@@ -235,17 +367,42 @@ def interpEField2D(x, y, E, method='linear'):
 
 
 	# Create interpolating functions for the E fields
-	ExInter = scp.interp2d(E[0], E[1], np.reshape(E[2],(E[1].size, E[0].size)), kind=method)
-	EyInter = scp.interp2d(E[0], E[1], np.reshape(E[3],(E[1].size, E[0].size)), kind=method)
+	Ex = scp.RegularGridInterpolator((E[0], E[1]), np.reshape(E[2], (E[0].size, E[1].size), order='F'), bounds_error=False, method=method, fill_value=None)
+	Ey = scp.RegularGridInterpolator((E[0], E[1]), np.reshape(E[3], (E[0].size, E[1].size), order='F'), bounds_error=False, method=method, fill_value=None)
+
+	# Create nd array of position
+	pos = np.array([x, y]).T
 
 	# Create output array of zeros
-	EInterp = np.zeros((x.size, 2))
+	EInterp = np.zeros(pos.shape)
 
-	for i in range(x.size):
-		EInterp[i, 0] = ExInter(x[i], y[i])[0]
-		EInterp[i, 1] = EyInter(x[i], y[i])[0]
+	# Interpolate positions points
+	EInterp[:, 0] = Ex(pos)
+	EInterp[:, 1] = Ey(pos)
 
 	return EInterp
+
+def interpEField3D(x, y, z, E, method='linear'):
+	""" Wrapper function for interpolating 3D field. Same function schema as interpEField2D but everything extended to 3D """
+
+	# Create interpolating functions for the E fields
+	Ex = scp.RegularGridInterpolator((E[0], E[1], E[2]), np.reshape(E[3], (E[0].size, E[1].size, E[2].size), order='F'), bounds_error=False, method=method, fill_value=None)
+	Ey = scp.RegularGridInterpolator((E[0], E[1], E[2]), np.reshape(E[4], (E[0].size, E[1].size, E[2].size), order='F'), bounds_error=False, method=method, fill_value=None)
+	Ez = scp.RegularGridInterpolator((E[0], E[1], E[2]), np.reshape(E[5], (E[0].size, E[1].size, E[2].size), order='F'), bounds_error=False, method=method, fill_value=None)
+
+	# Create nd array of position
+	pos = np.array([x, y, z]).T
+
+	# Create output array of zeros
+	EInterp = np.zeros(pos.shape)
+
+	# Interpolate positions points
+	EInterp[:, 0] = Ex(pos)
+	EInterp[:, 1] = Ey(pos)
+	EInterp[:, 2] = Ez(pos)
+
+	return EInterp
+
 
 def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear', roundFinalVal=False, stepback=0.0005):
 
@@ -257,30 +414,59 @@ def inducedChargeSingle(wPotential, path, q=1.6e-19, method='linear', roundFinal
 	if type(q) != np.ndarray:
 		q = q*np.ones(path.shape[0])
 
-	wPInter = scp.interp2d(wPotential[0], wPotential[1], np.reshape(wPotential[2],(wPotential[1].size, wPotential[0].size)), kind=method)
+	# Check if we are in 2 or 3D
+	if len(wPotential) == 4:
+		threeDim = True
+	else:
+		threeDim = False
 
+	# Define potential interpolation function
+	if threeDim:
+		wPInter = scp.RegularGridInterpolator((wPotential[0], wPotential[1], wPotential[2]), 
+			np.reshape(wPotential[3], (wPotential[0].size, wPotential[1].size, wPotential[2].size), order='F'), bounds_error=False, method=method, fill_value=None)
+	else:
+		wPInter = scp.RegularGridInterpolator((wPotential[0], wPotential[1]), np.reshape(wPotential[2],(wPotential[0].size, wPotential[1].size), order='F'),
+		bounds_error=False, method=method, fill_value=None)
+
+	# Find charge induced at each point in the path
 	for i in range(path.shape[0]):
+		if threeDim:
+			wP = wPInter([path[i,0], path[i,1], path[i,2]])
+		else:
+			wP = wPInter([path[i,0], path[i,1]])
 
-		wP = wPInter(path[i,0], path[i,1])
 		if i == path.shape[0] - 1 and roundFinalVal:
 			qi.append(-q[i]*round(wP[0]))
 		else:
 			qi.append(-q[i]*wP[0])
 
 	# ensure the last value of qi is not nan
-	zFinal = path[-1,1]
+	if threeDim:
+		zFinal = path[-1, 2]
+		sign = np.sign(np.mean(np.diff(path[:,2])))
+	else:
+		zFinal = path[-1, 1]
+		sign = np.sign(np.mean(np.diff(path[:,1])))
+	
 	count = 0
-	sign = np.sign(np.mean(np.diff(path[:,1])))
 	maxCount = 10
 	while np.isnan(qi[-1]):		
 		zFinal -= sign*stepback
 		if count == maxCount:
 			return np.zeros(1)
 		
-		if roundFinalVal:
-			qi[-1] = -q[-1]*round(wPInter(path[-1,0], zFinal)[0])
+		# Recompute the last value with the step backed z value
+		if threeDim:
+			if roundFinalVal:
+				qi[-1] = -q[-1]*round(wPInter([path[-1,0], path[-1,1], zFinal])[0])
+			else:
+				qi[-1] = -q[-1]*wPInter([path[-1,0], path[-1,1], zFinal])[0]
 		else:
-			qi[-1] = -q[-1]*wPInter(path[-1,0], zFinal)[0]
+			if roundFinalVal:
+				qi[-1] = -q[-1]*round(wPInter([path[-1,0], zFinal])[0])
+			else:
+				qi[-1] = -q[-1]*wPInter([path[-1,0], zFinal])[0]
+
 		count += 1
 
 	return np.array(qi)
@@ -290,8 +476,8 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 	Finds the induced charge at each electrode given a path of the the charged particle
 
 	Inputs:
-		wPotentialA - list including [x, y, Phi]. The x,y position pairs and the potential occuring at this. For electrode A
-		wPotentialB - list including [x, y, Phi]. The x,y position pairs and the potential occuring at this. For electrode B
+		wPotentialA - list including [x, y, (z), Phi]. The x,y(z) position pairs and the potential occuring at this. For electrode A
+		wPotentialB - list including [x, y, (z), Phi]. The x,y,(z) position pairs and the potential occuring at this. For electrode B
 		path - the position to compute the weighted potential at. Nx2 (x,y position at different time steps) numpy array
 		q - charge of the particle
 		roundFinalVal - boolean value indicating whether or not this is an electron/hole moving through an object. If true, rounds the value of the last weighted potential
@@ -307,17 +493,36 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 	if len(path) == 0:
 		return np.zeros(1), np.zeros(1), np.zeros(1)
 
+	# Check if we are in 2 or 3D
+	if len(wPotentialA) == 4:
+		threeDim = True
+	else:
+		threeDim = False
+
+
 	# Definte interplation functions
-	VaInter = scp.interp2d(wPotentialA[0], wPotentialA[1], np.reshape(wPotentialA[2],(wPotentialA[1].size, wPotentialA[0].size)), kind=method)
-	VbInter = scp.interp2d(wPotentialB[0], wPotentialB[1], np.reshape(wPotentialB[2],(wPotentialA[1].size, wPotentialA[0].size)), kind=method)
+	if threeDim:
+		VaInter = scp.RegularGridInterpolator((wPotentialA[0], wPotentialA[1], wPotentialA[2]), 
+			np.reshape(wPotentialA[3], (wPotentialA[0].size, wPotentialA[1].size, wPotentialA[2].size), order='F'), bounds_error=False, method=method, fill_value=None)
+		VbInter = scp.RegularGridInterpolator((wPotentialB[0], wPotentialB[1], wPotentialB[2]), 
+			np.reshape(wPotentialB[3], (wPotentialB[0].size, wPotentialB[1].size, wPotentialB[2].size), order='F'), bounds_error=False, method=method, fill_value=None)
+	else:
+		VaInter = scp.RegularGridInterpolator((wPotentialA[0], wPotentialA[1]), np.reshape(wPotentialA[2],(wPotentialA[0].size, wPotentialA[1].size), order='F'),
+		bounds_error=False, method=method, fill_value=None)
+		VbInter = scp.RegularGridInterpolator((wPotentialB[0], wPotentialB[1]), np.reshape(wPotentialB[2],(wPotentialB[0].size, wPotentialB[1].size), order='F'),
+		bounds_error=False, method=method, fill_value=None)
 
 	if type(q) != np.ndarray:
 		q = q*np.ones(path.shape[0])
 
 	# Iterated over all the positions in the path
 	for i in range(path.shape[0]):
-		Va = VaInter(path[i,0], path[i,1])
-		Vb = VbInter(path[i,0], path[i,1])
+		if threeDim:
+			Va = VaInter([path[i,0], path[i,1], path[i,2]])
+			Vb = VbInter([path[i,0], path[i,1], path[i,2]])
+		else:
+			Va = VaInter([path[i,0], path[i,1]])
+			Vb = VbInter([path[i,0], path[i,1]])
 		
 		# Find the q induced via the Shokley-Ramo Theorem
 		if i == path.shape[0] - 1 and roundFinalVal:
@@ -328,8 +533,13 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 			qB.append(-q[i]*Vb[0])
 
 	# ensure the last value of qi is not nan
-	zFinal = path[-1,1]
-	sign = np.sign(np.mean(np.diff(path[:,1])))
+	if threeDim:
+		zFinal = path[-1, 2]
+		sign = np.sign(np.mean(np.diff(path[:,2])))
+	else:
+		zFinal = path[-1, 1]
+		sign = np.sign(np.mean(np.diff(path[:,1])))
+
 	count = 0
 	maxCount = 10
 	while np.isnan(qA[-1]) or np.isnan(qB[-1]):
@@ -337,12 +547,20 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 		if count == maxCount:
 			return np.zeros(1), np.zeros(1), np.zeros(1)
 		
-		if roundFinalVal:
-			qA[-1] = -q[-1]*round(VaInter(path[-1,0], zFinal)[0])
-			qB[-1] = -q[-1]*round(VbInter(path[-1,0], zFinal)[0])
+		if threeDim:
+			if roundFinalVal:
+				qA[-1] = -q[-1]*round(VaInter([path[-1,0], path[-1,1], zFinal])[0])
+				qB[-1] = -q[-1]*round(VbInter([path[-1,0], path[-1,1], zFinal])[0])
+			else:
+				qA[-1] = -q[-1]*VaInter([path[-1,0], path[-1,1], zFinal])[0]
+				qB[-1] = -q[-1]*VbInter([path[-1,0], path[-1,1], zFinal])[0]
 		else:
-			qA[-1] = -q[-1]*VaInter(path[-1,0], zFinal)[0]
-			qB[-1] = -q[-1]*VbInter(path[-1,0], zFinal)[0]
+			if roundFinalVal:
+				qA[-1] = -q[-1]*round(VaInter([path[-1,0], zFinal])[0])
+				qB[-1] = -q[-1]*round(VbInter([path[-1,0], zFinal])[0])
+			else:
+				qA[-1] = -q[-1]*VaInter([path[-1,0], zFinal])[0]
+				qB[-1] = -q[-1]*VbInter([path[-1,0], zFinal])[0]
 		count += 1
 
 	qA, qB = np.array(qA), np.array(qB)
@@ -351,8 +569,8 @@ def inducedCharge(wPotentialA, wPotentialB, path, q=-1.6e-19, method='linear', r
 
 
 if __name__ == '__main__':
-	filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_weighted_potential.txt'
-	testHeader, testData = readComsolFile(filename)
+	# (?# filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_weighted_potential.txt')
+	# testHeader, testData = readComsolFile(filename)
 
 	# # Creating contour and wireframe plot
 	# print('Test plot function\n')
@@ -395,8 +613,8 @@ if __name__ == '__main__':
 	# ax.legend(['qA','qB','qDiff'])
 
 
-	gridFile = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_export.txt'
-	header, x, y, V = readComsolFileGrid(gridFile)
+	# gridFile = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_export.txt')
+	# header, x, y, V = readComsolFileGrid(gridFile)
 	# print(V.shape)
 	# xx, yy = np.meshgrid(x,y)
 	# z = np.reshape(V, (x.size, y.size))
@@ -405,5 +623,17 @@ if __name__ == '__main__':
 	# ax2.contourf(x, y, z)
 	# plt.show()
 
+	# Test 3D weighted potentail
+	filename = "/home/apiers/mnt/rocks/selena/data/em/pixel_detector_2mmdiam_200umAse_3d_small.txt"
+	_, pos, field = readComsolFileGrid3d(filename)
+	fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(16,9))
+	wPotential = [ pos[0]*1.e6, pos[1]*1.e6, pos[2]*1.e6, field[:,-4] ]
+	x = np.linspace(-1800, 1800, 400)
+	y = np.linspace(-1800, 1800, 400)
+	z = np.linspace(-99, 99, 400)
+	ax1.plot(x, inducedChargeSingle(wPotential, np.array([x, np.zeros(400), np.zeros(400)]).T, q=1), linewidth=2)
+	ax2.plot(y, inducedChargeSingle(wPotential, np.array([np.zeros(400), y, np.zeros(400)]).T, q=1), linewidth=2)
+	ax3.plot(z, inducedChargeSingle(wPotential, np.array([np.zeros(400), np.zeros(400), z]).T, q=1), linewidth=2)
+	plt.show()
 
 

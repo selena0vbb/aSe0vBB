@@ -9,17 +9,23 @@ CARRIER_LIFETIME_POISSON=0
 
 # EM settings
 CHARGE_DIFFERENCE=0
-VOLTAGE_SWEEP_INDEX=4
+VOLTAGE_SWEEP_INDEX=0
+FIELD_SCALE=2
 SCALE_WEIGHTED_PHI=0
 USE_BOUNDARY_LIMITS=1
 UNIT_CONVERSION_FACTOR=1.e3
 ELEMENTARY_CHARGE=1.6e-19
 ROUND_FINAL_WEIGHTED_PHI=1
 SAVE_PARTIAL_PULSES=0
-X_MIN=-1.2
-X_MAX=1.2
-Y_MIN=-0.1
-Y_MAX=0.1
+X_MIN=-1.9
+X_MAX=1.9
+DX=0.02
+Y_MIN=-1.9
+Y_MAX=1.9
+DY=0.02
+Z_MIN=-0.099
+Z_MAX=0.099
+DZ=0.004
 
 # aSe Properties
 # Mu in mm^2/(V*us)
@@ -29,15 +35,23 @@ MU_ELECTRONS=0.5e-6
 TAU_HOLES=35.0
 TAU_ELECTRONS=440.0
 # dt for motion is us
-DT_HOLES=0.02
-DT_ELECTRONS=0.2
+DT_HOLES=0.08
+DT_ELECTRONS=1.0
+# Total allowed time
+TOTAL_TIME_HOLES=20
+TOTAL_TIME_ELECTRONS=200
+WORK_FUNCTION=0.018+449.0/E
+#WORK_FUNCTION=0.05+0.0/E
+
 
 # Simulation Settings
 PARALLEL_PROCESS=1
-NPROCESSORS=24.
-NEVENTS_PER_FILE=150
-OUTPUT_DIR=/home/apiers/data/carrier/122keV/sio2/
-OUTPUT_FILE=pixel_122kev_sio2_4000V_0deg_pt%i.npy
-EM_FILENAME=/home/apiers/data/em/pixel_detector_2mmdiam_200umAse_FullE.txt
-PARTICLE_FILENAME=/home/apiers/data/particle/pixel_sio2_122kev_0degangle_200k.root
+NPROCESSORS=16.
+NEVENTS_PER_FILE=1000
+OUTPUT_DIR=/home/apiers/selena/data/carrier/extendedSize
+OUTPUT_FILE=pixel_100k_3D_varnehp_smoothE_pt%i.npy
+EM_FILENAME=/home/apiers/selena/data/em/pixel_detector_2mmdiam_sio2_3d_small.txt
+# EM_FILENAME=/home/apiers/selena/data/em/real_electrode.txt
+PARTICLE_FILENAME=/home/apiers/selena/data/particle/pixel_sio2_122kev_12degBeam_100k.root
+THREE_DIMENSIONS=1
 
