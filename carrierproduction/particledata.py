@@ -14,11 +14,13 @@ import seleniumconfig as sc
 from multiprocessing import Pool
 from pathlib import Path
 import tqdm
+import cexprtk
 
 # add the EM plot module to the path and import it
 sys.path.append('/home/apiers/aSe0vBB/EM Analysis')
+sys.path.append('/home/apiers/mnt/rocks/aSe0vBB/EM Analysis')
 print(sys.version)
-from plot import readComsolFileGrid, readComsolFileGrid3d, findMotion, inducedCharge, inducedChargeSingle
+from plot import readComsolFileGrid, readComsolFileGrid3d, findMotion, inducedCharge, inducedChargeSingle, interpEField2D, interpEField3D
 
 
 class gEvent(object):
@@ -200,7 +202,7 @@ class gEvent(object):
 		return val, binCenters
 
 
-	def createCarriers(self, Wehp=0.05, **kwargs):
+	def createCarriers(self, wehpFunction=None, efield=None, **kwargs):
 		"""
 		Function that creates carriers from the energy distribution of the incoming gamma rays. Standard is to create in 3D
 		Inputs:
@@ -209,7 +211,8 @@ class gEvent(object):
 		Outputs
 			nehp - (n1 x n2 x ... ni x ... x nN) array of the number of electron hole pairs created at each position given the energy and work function
 			nehpFluctuations - (n1 x n2 x ... x ni x ... x nN) array of the poisson fluctuations of each pair production
-			binCenters - N length list of the bin centers of each axis
+			binCenters - list of the bincenters along each (x,y,z) axis
+			[xv, yv, zv] - indexes in the nehp matrix where the values are non zero
 		"""
 
 		# Create the bins for the histogramming of energy events
@@ -223,16 +226,43 @@ class gEvent(object):
 
 		val, binCenters = self.plotHN(varname=("x", "y", "z"), fname="energy", testbins=bins)
 
+		# Find the non zero bin entries
+		if not kwargs["THREE_DIMENSIONS"]:
+			# If working in 2D projection, collapse the x axis
+			val = np.sum(val, axis=0, keepdims=True)
+
+		# x, y, z arrays of the index of the non zero elements of the nehpf array
+		xv, yv, zv = np.nonzero(val)
+
+		# Find the work function with E Field dependence
+		if wehpFunction and efield:
+			wehp = 0.05*np.ones(val.shape)
+			# Interpolate E field on non zero bin centers
+			if not kwargs["THREE_DIMENSIONS"]:
+				Eyz = interpEField2D(binCenters[1][yv], binCenters[2][zv], efield)
+				EMag = np.sqrt(np.sum(Eyz**2, axis=1))
+			else:
+				Exyz= interpEField3D(binCenters[0][xv], binCenters[1][yv], binCenters[2][zv], efield)
+				EMag = np.sqrt(np.sum(Exyz**2, axis=1))
+
+			# Iterate over the points with non zero nehp and find the work function at that position
+			for i in range(xv.size):
+				wehpFunction.symbol_table.variables["E"] = EMag[i]
+				wehp[xv[i], yv[i], zv[i]] = wehpFunction()
+		else:
+			# Use standard value of 50 eV if no E field information is passed\
+			wehp = 0.05*np.ones(val.shape)
+
 
 		# histogrammed data are in a (nbinx x nbiny x nbinz) array. Simply divide by Wehp to get the energy as a distribution of position
-		nehp = np.round(val/Wehp)
+		nehp = np.round(val/wehp)
 		if kwargs['CARRIER_GENERATION_POISSON']:
 			nehpFluctuation = np.random.poisson(nehp) - nehp
 		else:
 			nehpFluctuation = np.zeros(nehp.shape)
 
 		# Return
-		return nehp, nehpFluctuation, binCenters
+		return nehp, nehpFluctuation, binCenters, xv, yv, zv
 
 class gEventCollection(object):
 	"""docstring for gEventCollection"""
@@ -303,6 +333,10 @@ class CarrierSimulation(object):
 		self.emfilname = emfilename
 		self.configfile = configfile
 
+		# Default work function of 0.05 keV/ehp
+		self.symbolTable = cexprtk.Symbol_Table({"E":10}, add_constants=True)
+		self.wehpExpression = cexprtk.Expression("0.05", self.symbolTable)
+
 		# Read and store settings
 		print('Read config')
 		if configfile:
@@ -366,6 +400,11 @@ class CarrierSimulation(object):
 			self.outputdir = self.settings['OUTPUT_DIR']
 			self.outputfile = self.settings['OUTPUT_FILE']
 			self.use3D = self.settings['THREE_DIMENSIONS']
+
+			# Create the function to calculate nehp
+			self.symbolTable = cexprtk.Symbol_Table({"E":10}, add_constants=True)
+			self.wehpExpression = cexprtk.Expression(self.settings['WORK_FUNCTION'], self.symbolTable)
+
 
 		else:
 			warnings.warn("No settings to apply. Returning without applying settings.")
@@ -490,7 +529,7 @@ class CarrierSimulation(object):
 
 		# Gets the carrier information
 		event = self.eventCollection.collection[eventIdx]
-		nehp, nehpNoise, bins = event.createCarriers(**self.settings)
+		nehp, nehpNoise, bins, xv, yv, zv = event.createCarriers(self.wehpExpression, self.Etot, **self.settings)
 		nehpf = nehp + nehpNoise	# number of electron hole pairs w/ fluctuations is the average plus the noise noise determined by the specific model
 		nehpf = nehpf.astype(int)
 
@@ -513,14 +552,7 @@ class CarrierSimulation(object):
 		elecAInduced = []
 		elecBInduced = []
 
-		# iterate over all the grid points of electron hole pairs
-		if not self.use3D:
-			# If working in 2D projection, collapse the x axis
-			nehpf = np.sum(nehpf, axis=0, keepdims=True)
-
-		# x, y, z arrays of the index of the non zero elements of the nehpf array
-		xv, yv, zv = np.nonzero(nehpf)
-
+		
 		# Find the number of points in the nehp array that are nonzero. Iterate over those
 		for i in range(xv.size):
 
