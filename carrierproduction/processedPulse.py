@@ -7,8 +7,9 @@ import os
 
 class SimulatedPulse(object):
 	"""docstring for ProcessedPulse"""
+	statlist = ["meanPosition", "meanWeightedPosition", "sigmaPosition", "totalEnergy"]
 	def __init__(self, **kwargs):
-		super(ProcessedPulse, self).__init__()
+		super(SimulatedPulse, self).__init__()
 		
 		# Geant4 Event data
 		self.g4Event = []
@@ -22,10 +23,59 @@ class SimulatedPulse(object):
 
 		# Pulse information
 		self.timeSeries = []
-		self.path = []
-
+		self.maxPulseValue = []
+		
 		# Set the relevant carrier settings
 		self.setSimSettings(**kwargs)
+
+		# Define the statistic values we will compute
+		for stat in self.statlist:
+			setattr(self, stat, None)
+
+	def __str__(self):
+		outstr = ""
+		# Raw pulse info
+		outstr += str(self.g4Event)
+		outstr += "\nBins with energy information: "
+		outstr += "\n\tx: "
+		outstr += str(self.binnedPosition[0])
+		outstr += "\n\ty: "
+		outstr += str(self.binnedPosition[1])
+		outstr += "\n\tz: "
+		outstr += str(self.binnedPosition[2])
+		outstr += "\n\tenergy: "					
+		outstr += str(self.binnedEnergy)
+		outstr += "\nCharge Yield information: "
+		outstr += "\n\tWork function: "			
+		outstr += str(self.wehp)
+		outstr += "\n\tTheoretical Nehp: "				
+		outstr += str(self.nehp)
+		outstr += "\n\tFluctuating Nehp: " 				
+		outstr += str(self.nehpf)
+		outstr += "\nPulse information: "
+		outstr += "\n\tNumber of time steps: " 			
+		outstr += str(self.timeSeries[:,0].size)
+		outstr += "\n\tMax time: "					
+		outstr += str(self.timeSeries[-1,0])
+		outstr += "\n\tNumber of Signals: "			
+		outstr += str(self.timeSeries.shape[1]-1)
+		outstr += "\n\tMax Pulse Height: " 				
+		outstr += str(np.max(self.timeSeries[:,1:]))
+
+		# Carrier Dynamic setting information 
+		settingDictionary = self.getSimSettings()
+		outstr += "\nCarrier Dynamics settings: "
+		for key, val in sorted(settingDictionary.iteritems()):
+			outstr += str("\n\t%s: "%key)
+			outstr += str(val)
+
+		# Statistic information
+		outstr += "\nComputed Statistics on Event: "
+		for stat in self.statlist:
+			outstr += str("\n\t%s: "%stat)
+			outstr += str(getattr(self, stat))
+
+		return outstr
 
 	# Define setters
 	def setSimSettings(self, **kwargs):
@@ -71,7 +121,10 @@ class SimulatedPulse(object):
 		Result is an Nx(M+1) array """
 		data = np.zeros( (t.size, dim+1) )
 		data[:, 0]  = t
-		data[:, 1:] = f
+		if f.ndim == 1:
+			data[:,1] = f
+		else:
+			data[:, 1] = f
 		self.timeSeries = data
 
 	# Define getters
@@ -114,22 +167,27 @@ class SimulatedPulse(object):
 	def computeStats(self):
 		""" Compute a set of statistics about the event """
 		g4Data = self.g4Event.flattenEvent();
-		self.meanPosition = computeMeanPosition(g4Data["x"], g4Data["y"], g4Data["z"])
-		self.meanWeightedPosition = computeMeanWeightedPosition(g4Data["x"], g4Data["y"], g4Data["z"], g4Data["energy"])
-		self.sigmaPosition = computerSigmaPosition(g4Data["x"], g4Data["y"], g4Data["z"])
-		self.totalEnergy = computeTotalEnergy(g4Data["energy"])
+		self.meanPosition = self.computeMeanPosition(g4Data["x"], g4Data["y"], g4Data["z"])
+		self.meanWeightedPosition = self.computeMeanWeightedPosition(g4Data["x"], g4Data["y"], g4Data["z"], g4Data["energy"])
+		self.sigmaPosition = self.computeSigmaPosition(g4Data["x"], g4Data["y"], g4Data["z"])
+		self.totalEnergy = self.computeTotalEnergy(g4Data["energy"])
 
+	@staticmethod
 	def computeMeanPosition(x, y, z):
-		return np.array([np.mean(x), np.mean(y), np.mean(z)]) 
+		return np.array([np.average(x), np.average(y), np.average(z)]) 
 
+	@staticmethod
 	def computeMeanWeightedPosition(x, y, z, w):
-		return np.array([np.mean(x*w), np.mean(y*w), np.mean(z*w)]) / (np.sum(w))
+		return np.array([np.average(x, weights=w), np.average(y, weights=w), np.average(z, weights=w)])
 
+	@staticmethod
 	def computeSigmaPosition(x, y, z):
 		return np.array([np.std(x), np.std(y), np.std(z)])
 
+	@staticmethod
 	def computeTotalEnergy(energy):
 		return np.sum(energy)
+
 
 class SimulatedOutputFile(object):
 	"""Simulated"""
@@ -158,6 +216,24 @@ class SimulatedOutputFile(object):
 
 		self.pulses = []
 
+	def addPulses(self, simulatedPulses):
+		try:
+			for sim in simulatedPulses:
+				self.pulses.append(sim)
+		except TypeError:
+			self.pulses.append(simulatedPulses)
+		except:
+			print("Error Adding pulse to object")
+
+	def getPulses():
+		return self.pulses
+
+	def getPulse(index):
+		try:
+			return self.pulses[index]
+		except IndexError:
+			print("Invalid index for simulated pulses\n")
+
 
 
 def savePickleObject(obj, filename):
@@ -174,3 +250,54 @@ def loadPickleObject(filename):
 		obj = pickle.load(infile)
 
 	return obj
+
+
+if __name__ == '__main__':
+	# Testing the operation of these objects
+
+	import seleniumconfig as sc
+	import particledata as pd
+
+	# Create the data for the simulated pulse objects
+
+	# Load test particle data
+	eventCol = pd.gEventCollection("/home/apiers/mnt/rocks/selena/data/particle/pixel_sio2_122kev_12degBeam_100k.root", eventCounterRange=[0,5])
+	
+	# Load config file
+	config = sc.readConfigFile("/home/apiers/mnt/rocks/aSe0vBB/carrierproduction/config.txt")
+	
+	# Create fake data
+	n = 100
+	t = np.linspace(0, 10, n)
+	s1 = t[0:int(np.random.uniform(1,n))]*np.random.uniform(0,1)
+	s2 = t[0:int(np.random.uniform(1,n))]*np.random.uniform(0,1)
+	signal = np.concatenate((s1, s1[-1]*np.ones(n-s1.size))) + np.concatenate((s2, s2[-1]*np.ones(n-s2.size))) 
+	x, y, z = [1, 1, 1], [1, 2, 3], [5, 7, 7]
+	energy = np.array([12, 10, 100])
+	wehp = np.array([0.04, 0.041, 0.042])
+	nehp = energy / wehp
+	nehpf = np.random.poisson(nehp)
+
+	# Create and test functionality of simulated pulse object
+	simpulse = SimulatedPulse(**config)
+	simpulse.setG4Event(eventCol.collection[1])
+	simpulse.setBinnedPosition(x, y, z)
+	simpulse.setBinnedEnergy(energy)
+	simpulse.setWehp(wehp)
+	simpulse.setNehp(nehp, nehpf)
+	simpulse.setTimeSeries(t, signal)
+	simpulse.computeStats()
+	print(simpulse)
+	oldclass = str(simpulse)
+
+	# Create simulated output file object
+	simfile = SimulatedOutputFile(settings=config, outputfile="./test.npy")
+	simfile.addPulses(simpulse)
+
+	# Save file
+	savePickleObject(simfile, simfile.outputfile)
+
+	# Load file and print results to compare
+	loadSimfile = loadPickleObject(simfile.outputfile)
+	newclass = str(loadSimfile.pulses[0])
+	assert oldclass == newclass
