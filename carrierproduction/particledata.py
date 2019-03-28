@@ -24,7 +24,7 @@ from plot import readComsolFileGrid, readComsolFileGrid3d, findMotion, inducedCh
 
 
 class gEvent(object):
-	"""docsring for gEvent"""
+	"""docstring for gEvent"""
 	def __init__(self, gEventID=-1, hits=[], geometry=None):
 		""" Initializes the event class
 		Inputs:
@@ -37,6 +37,9 @@ class gEvent(object):
 			self.geomtry = geometry
 		else:
 			self.geometry = {'x':(-5, 5), 'y':(-2, 2), 'z':(-0.1, 0.1)}
+
+	def __str__(self):
+		return "Geant4 Event. Event ID: %i, Total Energy: %.1f" % (self.gEventID, np.sum(self.flattenEvent()["energy"]))
 
 
 	# Define Setters
@@ -302,6 +305,9 @@ class gEventCollection(object):
 				break
 
 		self.totalNEvents = len(self.collection)
+
+	def __str__(self):
+		return "Geant4 Event Collection. N=%i" % len(self.collection)
 
 	def printInfo(self):
 		""" Prints information regarding the collection of events"""
