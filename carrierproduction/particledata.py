@@ -9,12 +9,14 @@ except:
 	pass
 import numpy as np
 import sys
+import os
 import warnings
 import seleniumconfig as sc
 from multiprocessing import Pool
 from pathlib import Path
 import tqdm
 import cexprtk
+import processedPulse as pout
 
 # add the EM plot module to the path and import it
 sys.path.append('/home/apiers/aSe0vBB/EM Analysis')
@@ -212,8 +214,8 @@ class gEvent(object):
 			Wehp - work function of amorphous selenium
 			kwargs - key word arguments from the config file of the settings file
 		Outputs
-			nehp - (n1 x n2 x ... ni x ... x nN) array of the number of electron hole pairs created at each position given the energy and work function
-			nehpFluctuations - (n1 x n2 x ... x ni x ... x nN) array of the poisson fluctuations of each pair production
+			nehp - the nonzero number of electron hole pairs created in spacce associated with the xv, yv, zv indicess
+			nehpFluctuations - nonzero nehp fluctuations
 			binCenters - list of the bincenters along each (x,y,z) axis
 			[xv, yv, zv] - indexes in the nehp matrix where the values are non zero
 		"""
@@ -258,14 +260,16 @@ class gEvent(object):
 
 
 		# histogrammed data are in a (nbinx x nbiny x nbinz) array. Simply divide by Wehp to get the energy as a distribution of position
-		nehp = np.round(val/wehp)
+		nehp = val/wehp
 		if kwargs['CARRIER_GENERATION_POISSON']:
-			nehpFluctuation = np.random.poisson(nehp) - nehp
+			nehpFluctuation = np.random.poisson(nehp)
 		else:
-			nehpFluctuation = np.zeros(nehp.shape)
+			nehpFluctuation = np.round(nehp)
+
+		nehp = np.round(nehp)
 
 		# Return
-		return nehp, nehpFluctuation, binCenters, xv, yv, zv
+		return nehp[xv, yv, zv], nehpFluctuation[xv, yv, zv], binCenters, xv, yv, zv, wehp[xv, yv, zv], val[xv, yv, zv]
 
 class gEventCollection(object):
 	"""docstring for gEventCollection"""
@@ -533,11 +537,20 @@ class CarrierSimulation(object):
 
 		"""
 
+		# Creates a simulated pulse object to store information
+		simPulseObj = pout.SimulatedPulse(**self.settings)
+
 		# Gets the carrier information
 		event = self.eventCollection.collection[eventIdx]
-		nehp, nehpNoise, bins, xv, yv, zv = event.createCarriers(self.wehpExpression, self.Etot, **self.settings)
-		nehpf = nehp + nehpNoise	# number of electron hole pairs w/ fluctuations is the average plus the noise noise determined by the specific model
+		nehp, nehpNoise, bins, xv, yv, zv, wehp, binnedEnergy= event.createCarriers(self.wehpExpression, self.Etot, **self.settings)
+		nehpf = nehpNoise # mean nehp plus the model dependent noise
 		nehpf = nehpf.astype(int)
+
+		simPulseObj.setG4Event(event)
+		simPulseObj.setBinnedPosition(bins[0][xv], bins[1][yv], bins[2][zv])
+		simPulseObj.setBinnedEnergy(binnedEnergy)
+		simPulseObj.setNehp(nehp, nehpf)
+		simPulseObj.setWehp(wehp)
 
 		# Set up the boundaries of the em simulation
 		if self.settings['USE_BOUNDARY_LIMITS']:
@@ -575,7 +588,7 @@ class CarrierSimulation(object):
 				pathHoles = findMotion((bins[1][yv[i]], bins[2][zv[i]]), self.Etot, muHole, dtHole, totalTime=totalTimeHoles, q=qHoles, limits=limits)
 				pathElectrons = findMotion((bins[1][yv[i]], bins[2][zv[i]]), self.Etot, muElectron, dtElectron, totalTime=totalTimeElectrons, q=qElectrons, limits=limits)
 
-			qHoleArray, qElectronArray = self.chargeArray(nehpf[xv[i], yv[i], zv[i]], pathHoles.shape[0], pathElectrons.shape[0])
+			qHoleArray, qElectronArray = self.chargeArray(nehpf[i], pathHoles.shape[0], pathElectrons.shape[0])
 
 			# Keep the longest time for reference to create the total pulse at the end
 			try:
@@ -648,9 +661,18 @@ class CarrierSimulation(object):
 			qInducedA = qIndHoleA + np.interp(timeHoles, timeElectrons, qIndElectronA)
 			qInducedB = qIndHoleB + np.interp(timeHoles, timeElectrons, qIndElectronB)
 
-			return timeHoles, qInduced, qInducedA, qInducedB
+			if self.settings["FAST"]:
+				signal = np.array([qInduced, qInducedA, qInducedB]).T
+				simPulseObj.setSignalMaximum(np.max(np.abs(signal), axis=0)/self.settings['ELEMENTARY_CHARGE'])
+			else:
+				simPulseObj.setTimeSeries(timeHoles, np.array([qInduced, qInducedA, qInducedB]).T, dim=3)
+			return simPulseObj
 	
-		return timeHoles, qInduced
+		if self.settings["FAST"]:
+			simPulseObj.setSignalMaximum(np.max(np.abs(signal))/self.settings['ELEMENTARY_CHARGE'])
+		else:
+			simPulseObj.setTimeSeries(timeHoles, qInduced)
+		return simPulseObj
 
 	def processMultipleEvents(self, eventIdxs, processes=1, chunksize=8):
 		"""
@@ -662,37 +684,33 @@ class CarrierSimulation(object):
 			chunksize - number of chunks to break the eventIdx into and send to each worker at a time.
 
 		Outputs:
-			chargeSignals - list of time, induced charge pairs
+			simOutputObj - simulation output object
 		"""
 
-		chargeSignals = []
+		simOutputObj = pout.SimulatedOutputFile(settings=self.settings)
 		if self.settings['PARALLEL_PROCESS']:
 			pool = Pool(processes=processes)
-			#chargeSignals = pool.map(worker, ((self, event) for event in eventIdxs))
-			for x in tqdm.tqdm(pool.imap_unordered(worker, ((self, event) for event in eventIdxs), chunksize=chunksize), total=len(eventIdxs)):
-				chargeSignals.append(x)
+			for simPulse in tqdm.tqdm(pool.imap_unordered(worker, ((self, event) for event in eventIdxs), chunksize=chunksize), total=len(eventIdxs)):
+				simOutputObj.addPulses(simPulse)
 			pool.close()
 			pool.join()
 		else:
 			for event in tqdm.tqdm(eventIdxs):
-				t, q = self.computeChargeSignal(event)
-				chargeSignals.append((t, q))
+				simPulse = self.computeChargeSignal(event)
+				simOutputObj.addPulses(simPulse)
 
-		return chargeSignals
+		return simOutputObj
 
-	def saveTimeSeries(self, data):
+	def savedata(self, obj):
 		outdir = self.outputdir
 		outfile = self.outputfile
 
-		outpath = Path(outdir) / outfile
+		outpath = os.path.join(outdir, outfile)
 
-		fobj = open(str(outpath), 'w')
+		# Serialize obj/data using pick
+		pout.savePickleObject(obj, outpath)
 
-		np.save(fobj, data)
-
-		fobj.close()
-
-		return None
+		return
 
 
 def worker(args):
