@@ -8,6 +8,7 @@ import os
 class SimulatedPulse(object):
 	"""docstring for ProcessedPulse"""
 	statlist = ["meanPosition", "meanWeightedPosition", "sigmaPosition", "totalEnergy"]
+	q = 1.6e-19
 	def __init__(self, **kwargs):
 		super(SimulatedPulse, self).__init__()
 		
@@ -23,7 +24,7 @@ class SimulatedPulse(object):
 
 		# Pulse information
 		self.timeSeries = []
-		self.maxPulseValue = []
+		self.signalMaximum = []
 		
 		# Set the relevant carrier settings
 		self.setSimSettings(**kwargs)
@@ -59,8 +60,8 @@ class SimulatedPulse(object):
 		outstr += str(self.timeSeries[-1,0])
 		outstr += "\n\tNumber of Signals: "			
 		outstr += str(self.timeSeries.shape[1]-1)
-		outstr += "\n\tMax Pulse Height: " 				
-		outstr += str(np.max(self.timeSeries[:,1:]))
+		outstr += "\n\tMax Pulse Height (e): " 				
+		outstr += str(self.signalMaximum)
 
 		# Carrier Dynamic setting information 
 		settingDictionary = self.getSimSettings()
@@ -123,9 +124,14 @@ class SimulatedPulse(object):
 		data[:, 0]  = t
 		if f.ndim == 1:
 			data[:,1] = f
+			self.setSignalMaximum(np.max(np.abs(f))/self.q)
 		else:
 			data[:, 1] = f
+			self.setSignalMaximum(np.max(np.abs(f), axis=0)/self.q)
 		self.timeSeries = data
+
+	def setSignalMaximum(self, signalMax):
+		self.signalMaximum = signalMax
 
 	# Define getters
 	def getSimSettings(self):
@@ -216,6 +222,28 @@ class SimulatedOutputFile(object):
 
 		self.pulses = []
 
+	def __str__(self):
+		""" Return class information as string """
+		return "Carrier Simulation Object with %i simulated Events" % len(self.pulses)
+
+	def printInfo(self):
+
+		infostr = ""
+
+		# Add class info
+		infostr += str(self)
+		infostr += "\nOutput filename: "
+		infostr += str(self.outputfile)
+
+		# Add settings info
+		for key, val in self.settings.iteritems():
+			infostr += "\n%s: " % key
+			infostr += str(val)
+
+		# Add git info
+
+		print(infostr)
+
 	def addPulses(self, simulatedPulses):
 		try:
 			for sim in simulatedPulses:
@@ -225,10 +253,10 @@ class SimulatedOutputFile(object):
 		except:
 			print("Error Adding pulse to object")
 
-	def getPulses():
+	def getPulses(self):
 		return self.pulses
 
-	def getPulse(index):
+	def getPulse(self, index):
 		try:
 			return self.pulses[index]
 		except IndexError:
