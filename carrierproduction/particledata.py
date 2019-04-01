@@ -21,7 +21,6 @@ import processedPulse as pout
 # add the EM plot module to the path and import it
 sys.path.append('/home/apiers/aSe0vBB/EM Analysis')
 sys.path.append('/home/apiers/mnt/rocks/aSe0vBB/EM Analysis')
-print(sys.version)
 from plot import readComsolFileGrid, readComsolFileGrid3d, findMotion, inducedCharge, inducedChargeSingle, interpEField2D, interpEField3D
 
 
