@@ -168,7 +168,7 @@ def noise_histogram_parallel():
     emfilename=settings['EM_FILENAME']
 
     # nEvents = pd.numberOfEvents(filename)
-    nEvents = 2000.
+    nEvents = 10000.
 
     simObj = pd.CarrierSimulation(emfilename=emfilename, configfile=configfilename)
 
@@ -193,12 +193,13 @@ def noise_histogram_parallel():
             eevent = np.sum(flat['energy'])
 
             # if xmin < 1.9 and ymin < 1.9 and zmin > -0.1:
-            if xmin < 1.9 and ymin < 1.9 and zmin > -0.1:
+            if xmin < 4.9 and ymin < 4.9 and zmin > -0.1:
                 indx.append(i)
 
 
 
         simOutput = simObj.processMultipleEvents(indx, processes=int(settings['NPROCESSORS']))
+        simOutput.setGitInfo("../")
         simObj.outputfile = outfilename%j
         simObj.outputdir = outdir
         simObj.savedata(simOutput)
