@@ -4,6 +4,7 @@ import numpy as np
 import scipy as scp
 import cPickle as pickle
 import os
+import git
 
 class SimulatedPulse(object):
 	"""docstring for ProcessedPulse"""
@@ -241,6 +242,7 @@ class SimulatedOutputFile(object):
 			infostr += str(val)
 
 		# Add git info
+		infostr += self.getGitInfoStr()
 
 		print(infostr)
 
@@ -262,6 +264,58 @@ class SimulatedOutputFile(object):
 		except IndexError:
 			print("Invalid index for simulated pulses\n")
 
+	def setGitInfo(self, repopath=None):
+		""" Scrapes information about the git status and adds to the class """
+		gitInfo = {}
+
+		if type(repopath) is not str:
+			repopath = "./"
+
+		# Get the repo
+		repo = git.Repo(repopath)
+
+		# Create commit dictionary
+		commit = repo.active_branch.commit
+		commitDict = {
+			"commit"	: str(commit.hexsha),
+			"message"	: str(commit.summary),
+			"author" 	: str(commit.author.name) + " (" + str(commit.author.email) + ")",
+			"date" 		: str(commit.authored_datetime)
+		}
+
+		gitInfo["repoLocation"] = str(repo.remote().url)
+		gitInfo["repoPath"]		= str(repo.git_dir)
+		gitInfo["activeBranch"] = str(repo.active_branch)
+		gitInfo["commit"] 		= commitDict
+		gitInfo["dirty"] 		= repo.is_dirty()
+		gitInfo["dirtyFiles"]	= [str(file.a_path) for file in repo.index.diff(None)]
+
+		self.git = gitInfo
+
+	def getGitInfo(self):
+		""" returns the git information """
+		return self.git
+
+	def getGitInfoStr(self):
+		""" returns the git information in human readable string """
+		
+		gitInfoStr = ""
+		gitInfoStr += "\nGit Remote Location: " + self.git["repoLocation"]
+		gitInfoStr += "\nGit Local Location: " + self.git["repoPath"]
+		gitInfoStr += "\nCurrent Branch: " + self.git["activeBranch"]
+		gitInfoStr += "\nCurrent Commit: "
+		gitInfoStr += "\n\tHash: " + self.git["commit"]["commit"]
+		gitInfoStr += "\n\tMessage: " + self.git["commit"]["message"]
+		gitInfoStr += "\n\tAuthor: " + self.git["commit"]["author"]
+		gitInfoStr += "\n\tDate: " + self.git["commit"]["date"]
+		gitInfoStr += "\nIs Dirty: " + str(self.git["dirty"])
+
+		# Print the dirty files
+		gitInfoStr += "\nDirty Files: "
+		for file in self.git["dirtyFiles"]:
+			gitInfoStr += "\n\t" + file
+
+		return gitInfoStr
 
 
 def savePickleObject(obj, filename):
@@ -321,6 +375,11 @@ if __name__ == '__main__':
 	# Create simulated output file object
 	simfile = SimulatedOutputFile(settings=config, outputfile="./test.npy")
 	simfile.addPulses(simpulse)
+	simfile.setGitInfo("/home/apiers/mnt/rocks/aSe0vBB")
+	print("\n")
+	simfile.printInfo()
+	print("\n")
+	print(simfile.getGitInfoStr())
 
 	# Save file
 	savePickleObject(simfile, simfile.outputfile)
