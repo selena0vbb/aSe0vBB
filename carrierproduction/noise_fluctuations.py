@@ -193,7 +193,7 @@ def noise_histogram_parallel():
             eevent = np.sum(flat['energy'])
 
             # if xmin < 1.9 and ymin < 1.9 and zmin > -0.1:
-            if xmin < 4.9 and ymin < 4.9 and zmin > -0.1:
+            if xmin < settings['X_MAX'] and ymin < settings['Y_MAX'] and zmin > settings['Z_MIN']:
                 indx.append(i)
 
 
