@@ -7,7 +7,9 @@
 #include "G4VSolid.hh"
 #include "G4Box.hh"
 #include "G4Tubs.hh"
+#include "G4Trd.hh"
 #include "G4SubtractionSolid.hh"
+#include "G4UnionSolid.hh"
 #include "G4LogicalVolume.hh"
 #include "G4PVPlacement.hh"
 #include "G4RotationMatrix.hh"
@@ -67,8 +69,8 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 	G4Material* Cu = nist->FindOrBuildMaterial("G4_Cu");
 
 	// Define the world size and create the world
-	G4double worldSizeXY = 3*copperXY;
-	G4double worldSizeZ = 3*(seleniumDepth + glassDepth + copperDepth + airSpacingZ);
+	G4double worldSizeXY = 3*copperY;
+	G4double worldSizeZ = 3*(seleniumDepth + glassDepth + copperZ + airSpacingZ);
 
 	G4Box* solidWorld = new G4Box(	"World",
 									worldSizeXY/2, // world x dimension
@@ -109,28 +111,41 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 							false,
 							0);
 
+	// Defining copper collimator. (Copper block-tube)
 
+	// Define copper trapezoid for the collimator
+	G4VSolid* copperS = new G4Trd("CopperTrap",
+				copperX2/2,
+				copperX1/2,
+				copperY/2,
+				copperY/2,
+				copperZ/2);
 
-	// Define large copper top plate
-	G4Box* copperS = new G4Box("CopperBlocking",
-	            copperXY/2,
-	            copperXY/2,
-	            copperDepth/2);
+	// Defining collimator gap
+	G4VSolid* collimatedGapS = new G4Tubs("CollimatedGap",
+				0,
+				collimatorRadius,
+				copperZ/2,
+				0, twopi);
 
-	G4LogicalVolume* copperLV =
-		new G4LogicalVolume(copperS,
-		          Cu,
-		          "CopperBlocking");
+	G4VSolid* collimatorS = new G4SubtractionSolid("Collimator",
+				copperS,
+				collimatedGapS,
+				0, G4ThreeVector());
 
-	G4VPhysicalVolume* copperPV =
+	G4LogicalVolume* collimatorLV = 
+		new G4LogicalVolume(collimatorS,
+				Cu,
+				"Collimator");
+
+	G4VPhysicalVolume* collimatorPV = 
 		new G4PVPlacement(0,
-		          G4ThreeVector(0, 0, -(seleniumDepth + copperDepth)/2 -glassDepth - airSpacingZ),
-		          copperLV,
-		          "CopperBlocking",
-		          logicalWorld,
-		          false,
-		          0);
-
+		        G4ThreeVector(0, 0, (seleniumDepth + copperZ)/2 + airSpacingZ),
+		        collimatorLV,
+		        "CopperBlocking",
+		        logicalWorld,
+		        false,
+		        0);
 
 	// Create copper electrodes for pixel electrodes
 	// Top Plate
@@ -152,6 +167,13 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 		          logicalWorld,
 		          false, 0);
 
+	// Create traces
+	G4double traceLength = seleniumXY/2 - guardOuterRadius;
+	G4Box* copperTraceS = new G4Box("CopperTrace",
+				traceLength/2,
+				copperTraceWidth/2,
+				electrodeDepth/2);
+
 
 	// Define Pixel electrode
 	G4VSolid* pixelS = new G4Tubs("Pixel",
@@ -160,8 +182,14 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 	            electrodeDepth/2,
 	            0, twopi);
 
+	// Union pixel and trace
+	G4VSolid* pixelTraceS = new G4UnionSolid("Pixel+Trace",
+				pixelS,
+				copperTraceS,
+				0, G4ThreeVector(traceLength/2 + pixelRadius - 10.*um, 0, 0));
+
 	G4LogicalVolume* pixelLV =
-		new G4LogicalVolume(pixelS,
+		new G4LogicalVolume(pixelTraceS,
 		          Cu,
 		          "Pixel");
 
@@ -178,10 +206,22 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 	            guardInnerRadius,
 	            guardOuterRadius,
 	            electrodeDepth/2,
-	            0, twopi);
+	            pi/10, twopi - twopi/10);
+
+	
+
+	// Union of guard ring and trace
+	G4RotationMatrix* rot1 = new G4RotationMatrix();
+	rot1->rotateX(0.  *deg);
+	rot1->rotateY(0.  *deg);
+	rot1->rotateZ(90. *deg);
+	G4VSolid* guardTraceS = new G4UnionSolid("GuardRing+Trace",
+				guardS,
+				copperTraceS,
+				rot1, G4ThreeVector(0, traceLength/2 + guardOuterRadius - 10.*um, 0));
 
 	G4LogicalVolume* guardLV =
-		new G4LogicalVolume(guardS,
+		new G4LogicalVolume(guardTraceS,
 		          Cu,
 		          "GuardRing");
 
@@ -192,6 +232,7 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 		          "GuardRing",
 		          logicalWorld,
 		          false, 0);
+
 
 	// Define glass substrate, need to use volume subtraction to not have it overlap with the
 
@@ -205,14 +246,14 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 	G4VSolid* glassMinusPixelS =
 		new G4SubtractionSolid("Glass-Pixel",
 		          glassS,
-		          pixelS,
+		          pixelTraceS,
 		          0, G4ThreeVector(0, 0, (glassDepth - electrodeDepth)/2));
 
 	// Remove the guard ring
 	G4VSolid* glassMinusElecS =
 		new G4SubtractionSolid("Glass-Elec",
 		          glassMinusPixelS,
-		          guardS,
+		          guardTraceS,
 		          0, 	G4ThreeVector(0, 0, (glassDepth - electrodeDepth)/2));
 
 	G4LogicalVolume* glassLV =

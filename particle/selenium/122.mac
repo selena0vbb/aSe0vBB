@@ -7,10 +7,11 @@
 
 /gps/ene/mono 122 keV
 #/gps/position 19 0 -5.1 mm
-/gps/position 0, 0, -10.1 mm
+/gps/position 0, 0, 18.1 mm
 /gps/ang/type iso
-/gps/ang/mintheta 179 deg
+/gps/ang/maxtheta 70 deg
+#/gps/ang/mintheta 179 deg
 #/gps/ang/rot1 5.1 0 19 
-/analysis/setFileName /home/apiers/selena/data/particle/pixel_sio2_122kev_1degBeam_1M.root
-/run/beamOn 1000000
+/analysis/setFileName /home/apiers/selena/data/particle/pixel_sio2_122kev_collimator1mm_10M.root
+/run/beamOn 10000000
 

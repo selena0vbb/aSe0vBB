@@ -6,9 +6,11 @@
 /event/verbose 0
 
 /gps/ene/mono 14 keV
-/gps/position 19 0 -5.1 mm
+#/gps/position 19 0 -5.1 mm
+/gps/position 0, 0, 18.1 mm
 /gps/ang/type iso
-/gps/ang/mintheta 177.5 deg
-/gps/ang/rot1 5.1 0 19 
-/analysis/setFileName /home/apiers/data/particle/pixel_sio2_14kev_75degangle_2200k.root
-/run/beamOn 200000
+/gps/ang/maxtheta 70 deg
+#/gps/ang/mintheta 179 deg
+#/gps/ang/rot1 5.1 0 19 
+/analysis/setFileName /home/apiers/selena/data/particle/pixel_sio2_14kev_collimator1mm_10M.root
+/run/beamOn 10000000
