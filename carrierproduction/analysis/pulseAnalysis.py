@@ -5,6 +5,7 @@ import pwlf
 import matplotlib.pyplot as plt
 import ROOT as rt
 import scipy.signal as scp
+import processedPulse as proc
 
 
 def readBatchFiles(filepath, pattern='*.npy'):
@@ -32,6 +33,35 @@ def readBatchFiles(filepath, pattern='*.npy'):
             data = np.concatenate((data, dataTemp), axis=0)
 
     return data
+
+def readBatchFilesCso(filepath, pattern="*.cso"):
+    """
+    Reads all .cso data files from a folder that match the pattern. Combines (if they have the same settings) into a single carrier simulation object.
+
+    Match patter is regex. For example to match the files 122_keV_pixel%i.cso you would use the pattern string '122_keV_pixel\d+.cso'
+    """
+
+    # Get all files
+    files = [f for f in os.listdir(filepath) if os.path.isfile(os.path.join(filepath, f))]
+
+    # Filter by pattern
+    r = re.compile(pattern)
+
+    # filters all files in directory with the regex expression
+    files2Read = list(filter(r.match, files))
+
+    for i, fr in enumerate(files2Read):
+        if i == 0:
+            simOutFile = proc.loadPickleObject(fr)
+        else:
+            simOutFileTemp = procc.loadPickleObject(fr)
+            # Check if settings are the same before combining
+            if simOutFile.settings == simOutFileTemp.settings:
+                simOutpFile.addPulses(simOutFileTemp.getPulses())
+            else:
+                Print("Incompatible settings. Files not concatenated.")
+                return
+
 
 
 def getEnergySpectrum(data, w=0.05):
