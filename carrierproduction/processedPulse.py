@@ -124,10 +124,10 @@ class SimulatedPulse(object):
 		data = np.zeros( (t.size, dim+1) )
 		data[:, 0]  = t
 		if f.ndim == 1:
-			data[:,1] = f
+			data[:, 1] = f
 			self.setSignalMaximum(np.max(np.abs(f))/self.q)
 		else:
-			data[:, 1] = f
+			data[:, 1:] = f
 			self.setSignalMaximum(np.max(np.abs(f), axis=0)/self.q)
 		self.timeSeries = data
 
@@ -248,8 +248,7 @@ class SimulatedOutputFile(object):
 
 	def addPulses(self, simulatedPulses):
 		try:
-			for sim in simulatedPulses:
-				self.pulses.append(sim)
+			self.pulses.extend(simulatedPulses)
 		except TypeError:
 			self.pulses.append(simulatedPulses)
 		except:
