@@ -199,7 +199,7 @@ def noise_histogram_parallel():
 
 
         simOutput = simObj.processMultipleEvents(indx, processes=int(settings['NPROCESSORS']))
-        simOutput.setGitInfo("../")
+        simOutput.setGitInfo(settings["GIT_DIR"])
         simObj.outputfile = outfilename%j
         simObj.outputdir = outdir
         simObj.savedata(simOutput)

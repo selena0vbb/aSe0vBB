@@ -48,6 +48,7 @@ FAST=0
 PARALLEL_PROCESS=1
 NPROCESSORS=10.
 NEVENTS_PER_FILE=1000
+GIT_DIR=/home/apiers/aSe0vBB
 OUTPUT_DIR=/home/apiers/selena/data/carrier/coplanar
 OUTPUT_FILE=coplanar_1M_1degBeam_varnehp_pt%i.cso
 EM_FILENAME=/home/apiers/selena/data/em/coplanar_200umAsE_pbc_2D.txt
