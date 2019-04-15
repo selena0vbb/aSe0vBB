@@ -370,6 +370,11 @@ class CarrierSimulation(object):
 		else:
 			self.x = self.y = self.z = self.data = []
 
+		if self.settings['SCALE_WEIGHTED_PHI']:
+			self.computeScaleFactor()
+		else:
+			self.scale = 1
+
 	def newEmFile(self, emfilename):
 		"""
 		Replace the em data with what is in the new file
@@ -402,10 +407,7 @@ class CarrierSimulation(object):
 	def applySettings(self):
 		if self.settings:
 			print('Apply Relevant Settings')
-			if self.settings['SCALE_WEIGHTED_PHI']:
-				self.computeScaleFactor()
-			else:
-				self.scale = 1
+			
 			self.outputdir = self.settings['OUTPUT_DIR']
 			self.outputfile = self.settings['OUTPUT_FILE']
 			self.use3D = self.settings['THREE_DIMENSIONS']
