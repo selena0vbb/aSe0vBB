@@ -130,4 +130,4 @@ for i in range(np.amin(Ey.shape)):
 
     Emax.append(np.amax(np.array(Enorm)))
 
-print(Emax)
+print (Emax)

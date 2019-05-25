@@ -9,7 +9,7 @@ CARRIER_LIFETIME_POISSON=0
 
 # EM settings
 CHARGE_DIFFERENCE=1
-VOLTAGE_SWEEP_INDEX=0
+VOLTAGE_SWEEP_INDEX=1
 FIELD_SCALE=2
 SCALE_WEIGHTED_PHI=1
 USE_BOUNDARY_LIMITS=1
@@ -23,7 +23,7 @@ DX=0.008
 Y_MIN=-0.078
 Y_MAX=0.078
 DY=0.002
-Z_MIN=-0.099
+Z_MIN=-0.0999
 Z_MAX=0.099
 DZ=0.004
 
@@ -35,7 +35,7 @@ MU_ELECTRONS=0.5e-6
 TAU_HOLES=35.0
 TAU_ELECTRONS=440.0
 # dt for motion is us
-DT_HOLES=0.04
+DT_HOLES=0.01
 DT_ELECTRONS=0.8
 # Total allowed time
 TOTAL_TIME_HOLES=20
@@ -47,11 +47,11 @@ WORK_FUNCTION=0.018+449.0/E
 FAST=0
 PARALLEL_PROCESS=1
 NPROCESSORS=10.
-NEVENTS_PER_FILE=1000
+NEVENTS_PER_FILE=2000
 GIT_DIR=/home/apiers/aSe0vBB
 OUTPUT_DIR=/home/apiers/selena/data/carrier/coplanar
-OUTPUT_FILE=coplanar_1M_1degBeam_varnehp_pt%i.cso
-EM_FILENAME=/home/apiers/selena/data/em/coplanar_200umAsE_pbc_2D.txt
+OUTPUT_FILE=coplanar_1M_1degBeam_varnehp_600V_pt%i.cso
+EM_FILENAME=/home/apiers/selena/data/em/coplanar_200umAsE_pbc_2D_varVb.txt
 PARTICLE_FILENAME=/home/apiers/selena/data/particle/pixel_sio2_122kev_1degBeam_1M.root
 THREE_DIMENSIONS=0
 

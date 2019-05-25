@@ -303,7 +303,7 @@ def noise_spectrum():
     e122Spectrum = []
     e136Spectrum = []
     for i in range(1000):
-        print(i)
+        print (i)
         # reject events below like 25 kev
         if -np.min(e122[i][1]) * adc2energy < 30:
             pass
@@ -338,7 +338,7 @@ def noise_spectrum():
     plt.show()
 
     for i in range(1000):
-        print(i)
+        print (i)
         # reject events below like 25 kev
         if -np.min(e136[i][1]) * adc2energy < 30:
             pass

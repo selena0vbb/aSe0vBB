@@ -8,15 +8,15 @@ import os
 filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\bias_voltage\bias_voltage_small_scale_10umspace_0_360_range_unequal_electrode_size.txt"
 bias = np.arange(0, 400, 40)
 # bias = np.linspace(110, 140, 12)
-print(bias.size)
+print (bias.size)
 header, y, z, data = readComsolFileGrid(filename)
 y, z = y * 1e6, z * 1e6
 test = data[:, np.amin(data.shape) - 2]
-print(test.shape)
+print (test.shape)
 # Remove NaNs
 locNan = np.argwhere(np.isnan(data))
 locNanXy = np.argwhere(np.isnan(data[:, 0]))
-print(np.isnan(data[:, 0]).shape)
+print (np.isnan(data[:, 0]).shape)
 data = np.nan_to_num(data, copy=False)
 # data = np.delete(data, locNan)
 # y, z = np.delete(y, locNanXy), np.delete(z, locNanXy)
@@ -25,7 +25,7 @@ phi, Ey, Ez = (
     data[:, 1 : np.amin(data.shape) : 3],
     data[:, 2 : np.amin(data.shape) : 3],
 )
-print(data.shape)
+print (data.shape)
 test = data[:, 1:4]
 ax = []
 
@@ -33,7 +33,7 @@ ax = []
 for i in range(np.amin(phi.shape) - 2):
     # locNan = np.argwhere(np.isnan(phi[:,i]))
     # _, tempAxis = plotPhi((np.delete(y, locNan), np.delete(z, locNan)), np.delete(phi[:,i], locNan), i, type='contour')
-    print(i)
+    print (i)
     fig, tempAxis, tempCAxis = plotPhi((y, z), phi[:, i], i, type="contour")
     tempAxis.set_title(
         r"Coplanar Potential for $\Phi_A=0$ and $\Phi_B=$" + str(bias[i]), fontsize=16

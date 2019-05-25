@@ -18,7 +18,7 @@ def fitWehp():
     # Fit the data
     initialParams = [6, 400]
     popt, pcov = scp.curve_fit(we, field, wehp, initialParams)
-    print(popt)
+    print (popt)
     eFieldAxis = np.linspace(10, 25, 100)
 
     # plot the result

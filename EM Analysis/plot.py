@@ -176,7 +176,7 @@ def plotPhi(pos, data, funcIdx, type="contour", figH=None, color=None, ncontour=
         return fig, ax
 
     else:
-        print("Error: a type of %s is not a valid input", type)
+        print ("Error: a type of %s is not a valid input", type)
         return None
 
 

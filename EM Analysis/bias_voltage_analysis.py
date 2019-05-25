@@ -82,7 +82,7 @@ for i in range(N):
             [y, z, weightPhiA], [y, z, weightPhiB], particleMotion[:, (0, 1)], q=1.6e-19
         )
     except:
-        print(particleMotion.shape)
+        print (particleMotion.shape)
     ax4.plot(particleMotion[:, 1], qdiff, "k", linewidth=0.5)
 
 

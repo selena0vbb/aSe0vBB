@@ -33,6 +33,7 @@ from plot import (
 # Libraries to import
 import ROOT as rt
 
+
 class gEvent(object):
     """docstring for gEvent"""
 
@@ -102,7 +103,7 @@ class gEvent(object):
             if all(boolTypeCheck):
                 self.hits.append(hit)
             else:
-                print("One or more data type in the hit is invalid")
+                print ("One or more data type in the hit is invalid")
 
         except Exception as e:
             raise e
@@ -381,8 +382,8 @@ class gEventCollection(object):
 
     def printInfo(self):
         """ Prints information regarding the collection of events"""
-        print("Particle data comes from " + self.rootFilename)
-        print("There are %i events stored in this collection" % (len(self.collection)))
+        print ("Particle data comes from " + self.rootFilename)
+        print ("There are %i events stored in this collection" % (len(self.collection)))
 
     def findEvent(self, eventID):
         """Searches the collection for an event with eventID. Returns if finds it"""
@@ -393,7 +394,7 @@ class gEventCollection(object):
                 foundEvent = event
 
         if not foundEvent:
-            print("Could not find a event matching the ID %i" % eventID)
+            print ("Could not find a event matching the ID %i" % eventID)
 
         return foundEvent
 
@@ -413,7 +414,7 @@ class CarrierSimulation(object):
         self.wehpExpression = cexprtk.Expression("0.05", self.symbolTable)
 
         # Read and store settings
-        print("Read config")
+        print ("Read config")
         if configfile:
             self.settings = sc.readConfigFile(configfile)
             self.applySettings()
@@ -425,14 +426,14 @@ class CarrierSimulation(object):
             return
 
         # Read and store particle data
-        print("Read Geant4 Simulation Data")
+        print ("Read Geant4 Simulation Data")
         if type(eventCollection) is str:
             self.eventCollection = gEventCollection(eventCollection)
         else:
             self.eventCollection = eventCollection
 
         # Read and store emdata
-        print("Read Comsol EM Data")
+        print ("Read Comsol EM Data")
         if emfilename:
             self.newEmFile(emfilename)
         else:
@@ -474,7 +475,7 @@ class CarrierSimulation(object):
 
     def applySettings(self):
         if self.settings:
-            print("Apply Relevant Settings")
+            print ("Apply Relevant Settings")
 
             self.outputdir = self.settings["OUTPUT_DIR"]
             self.outputfile = self.settings["OUTPUT_FILE"]

@@ -8,7 +8,7 @@ import brewer2mpl
 def signalFFT(signal, time, n=None):
 
     dt = np.diff(time)[0]
-    print(dt)
+    print (dt)
 
     if n:
         if n > signal.size:
@@ -42,9 +42,9 @@ def readNoiseFile(filename):
 
 
 def testReadNoiseFile():
-    filename = "./Noise_withCurrent.txt"
+    filename = "/home/apiers/Downloads/Noise_withCurrent.txt"
     f, amplitude, size = readNoiseFile(filename)
-    print(size)
+    print (size)
     fig, ax = plt.subplots()
     ax.plot(f, amplitude)
     ax.set_xscale("log")
@@ -128,28 +128,39 @@ def getNoise(psFilename, size, dt):
     nfx = np.fft.fftfreq(nt.size, dt)
 
     # Apply powerspectrum to noise
-    nfyPowerSpectrum = nfy * np.interp(nfx, f, 10 ** (ps / 10))
+    nfyPowerSpectrum = nfy * np.interp(nfx, f, np.sqrt(10 ** (ps / 10)))
 
     # inverse fourier tranform to get time
     ntPowerSpectrum = np.fft.ifft(nfyPowerSpectrum)
 
-    # fig, (ax1, ax2) = plt.subplots(2,1, sharex=True)
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
 
-    # # # plot spectrum of noise
-    # t=np.arange(0, size*dt, dt)*1e6
+    # # plot spectrum of noise
+    t = np.arange(0, size * dt, dt) * 1e6
 
-    # ax1.plot(t, nt, linewidth=2)
-    # ax1.set_ylabel('White Noise Amplitude', fontsize=14)
+    ax1.plot(t, nt, linewidth=2)
+    ax1.set_ylabel("White Noise Amplitude", fontsize=14)
     # ax2.plot(t, np.real(ntPowerSpectrum), 'k', linewidth=2)
-    # ax2.plot(t, np.imag(ntPowerSpectrum), 'r', linewidth=2)
-    # ax2.set_ylabel('Filtered Noise Amplitude', fontsize=14)
-    # ax2.set_xlabel('Time ($\mu s$)', fontsize=14)
-    # ax2.legend(['Real', 'Imaginary'])
-    # ax1.hist(nt, bins=100, color='b', histtype='step')
-    # ax2.hist(abs(ntPowerSpectrum), bins=100, color='r', histtype='step')
-    # ax.plot(f, ps, linewidth=2, color='r')
-    # ax.plot(nfx[:nfx.size//2], 10*np.log10(abs(nfy[:nfy.size//2])), linewidth=2, color='b')
-    # ax.set_xscale('log')
+    ax2.plot(t, np.abs(ntPowerSpectrum), "r", linewidth=2)
+    ax2.set_ylabel("Filtered Noise Amplitude", fontsize=14)
+    ax2.set_xlabel("Time ($\mu s$)", fontsize=14)
+
+    fig1, ax = plt.subplots(1, 1)
+    ax.plot(f, ps, linewidth=2, color="r")
+    ax.plot(
+        nfx[: nfx.size // 2],
+        10 * np.log10(abs(nfy[: nfy.size // 2])),
+        linewidth=2,
+        color="b",
+    )
+    ax.plot(
+        nfx[: nfx.size // 2],
+        10 * np.log10(abs(nfyPowerSpectrum[: nfy.size // 2])),
+        linewidth=2,
+        color="g",
+    )
+    ax.set_xscale("log")
+    ax.legend(["PSD", "White Noise", "PSD Noise"])
 
     plt.show()
     return ntPowerSpectrum
@@ -188,5 +199,5 @@ if __name__ == "__main__":
 
     # FourierTransformTestSignals()
     # testReadNoiseFile()
-    # getNoise('./Noise_withCurrent.txt', 1000, 2.e-8)
-    applyNoisetoSignal()
+    getNoise("/home/apiers/Downloads/Noise_withCurrent.txt", 1000000, 4.0e-9)
+    # applyNoisetoSignal()

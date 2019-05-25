@@ -98,7 +98,7 @@ def width_of_signal():
         label="Mean=%0.2f  rms=%0.2f" % (np.mean(signalLength), np.std(signalLength)),
     )
     ax.legend()
-    print(len(index))
+    print (len(index))
     return None
 
 

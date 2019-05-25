@@ -16,15 +16,15 @@ def signalAnalysis():
     ]
     configfilename = r"./config.txt"
 
-    print("Read settings")
+    print ("Read settings")
     settings = sc.readConfigFile(configfilename)
 
-    print("Read Geant4 Particle data")
+    print ("Read Geant4 Particle data")
     newCollection = pd.gEventCollection(filename)
     event = newCollection.collection[140]
     creatorProc = event.GetHits()[1]["creatorProcess"].split("\x00")[0]
 
-    print("Calculating induced charge signal")
+    print ("Calculating induced charge signal")
     for file in emfilename:
         biasVoltIndex = [0, 1, 2, 3, 4]
         plt.rc("font", family="serif")
@@ -32,7 +32,7 @@ def signalAnalysis():
         bmap = brewer2mpl.get_map("Set1", "Qualitative", 5).mpl_colors
         biasString = ["120 V", "160 V", "200 V", "240 V", "280 V"]
         for indx in biasVoltIndex:
-            print(indx)
+            print (indx)
             settings["VOLTAGE_SWEEP_INDEX"] = indx
             time, q = pd.computeChargeSignal(event, file, **settings)
             ax.plot(time, -q, linewidth=2, color=bmap[indx], label=biasString[indx])
@@ -63,8 +63,8 @@ def testScaleFactor():
     for i in allhits:
         etot += i["energy"]
 
-    print(etot)
-    print(allhits[1]["y"])
+    print (etot)
+    print (allhits[1]["y"])
 
     event.plotH2()
 

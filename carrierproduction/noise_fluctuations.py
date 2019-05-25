@@ -33,7 +33,7 @@ def geometric_carrier_trapping(eventIDs):
         qtot = 0
 
         for i in range(N):
-            print(i)
+            print (i)
 
             t, q = pd.computeChargeSignal(event, emfilename, **settings)
             ax.plot(t, -q / 1.6e-19 * 0.05, color=bmap[colorj], alpha=0.3)
@@ -95,7 +95,7 @@ def noise_histogram():
 
     for i in range(N):
 
-        print(i)
+        print (i)
 
         energy.append(sum(flatData["energy"]))
 
@@ -209,7 +209,7 @@ def testNewgEventCollection():
 
     newEventCollection = pd.gEventCollection(filename, eventCounterRange=[2, 10])
 
-    print("Successfully read")
+    print ("Successfully read")
     return None
 
 
@@ -333,8 +333,8 @@ def noise_histogram_multiple_events():
                     )
                     charge1usNoTrapping.append(q1)
                     charge20usNoTrapping.append(q20)
-                    print("1 us. Event ID %i: %f" % (event.GetEventID(), q1))
-                    print("20 us. Event ID %i: %f" % (event.GetEventID(), q20))
+                    print ("1 us. Event ID %i: %f" % (event.GetEventID(), q1))
+                    print ("20 us. Event ID %i: %f" % (event.GetEventID(), q20))
 
                     # Trapping
                     # settings['CARRIER_LIFETIME_GEOMETRIC'] = 0

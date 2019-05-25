@@ -81,7 +81,7 @@ for findx, file in enumerate(filelist):
     slopeA = (phiASlice[-1] - phiASlice[100]) / (z[-1] - z[100])
     slopeB = (phiBSlice[-1] - phiBSlice[100]) / (z[-1] - z[100])
 
-    print(slopeA / slopeB)
+    print (slopeA / slopeB)
 
     ax5.plot(
         -z,

@@ -89,7 +89,7 @@ def effectiveAreaOfDifferentKaptonWidth():
                         qSign[j] = 1
 
             effectiveArea[findx, i] = sum(qSign) / len(qSign)
-            print(effectiveArea)
+            print (effectiveArea)
 
     plt.rc("font", family="serif")
     fig, ax = plt.subplots()
@@ -139,7 +139,7 @@ def darkCurrentCalculation():
     detectorLength = 2e3  # um. Corresponds to 2 mm
     detectorArea = detectorLength ** 2
 
-    print(filelist)
+    print (filelist)
 
     # Create positions of small area
     ycent = np.arange(0, ydim, dy) + dy / 2  # center position of all the area elements
@@ -147,7 +147,7 @@ def darkCurrentCalculation():
     current = np.zeros((len(filelist), bias.size))
     legend = []
     for findx, file in enumerate(filelist):
-        print(findx)
+        print (findx)
         # Read data
         _, y, z, data = readComsolFileGrid(fileloc + "\\" + file)
         y, z = y * 1e6, z * 1e6  # convert to um
@@ -180,7 +180,7 @@ def darkCurrentCalculation():
 
     meanCurrentPerUm = current / ydim
     darkCurrent = meanCurrentPerUm * detectorArea
-    print(darkCurrent)
+    print (darkCurrent)
 
     # Making plots of the dark current related data
     bmap = brewer2mpl.get_map("Set2", "Qualitative", 8).mpl_colors

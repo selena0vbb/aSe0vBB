@@ -6,9 +6,9 @@ import os
 
 filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\real_electrode.txt"
 header, y, z, data = readComsolFileGrid(filename)
-print(data.shape)
-print(y.shape)
-print(z.shape)
+print (data.shape)
+print (y.shape)
+print (z.shape)
 
 # Convert units from meters to mm
 y, z = y * 1000, z * 1000

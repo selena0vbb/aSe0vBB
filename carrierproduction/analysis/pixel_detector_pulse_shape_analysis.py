@@ -140,7 +140,7 @@ def energyHistogram():
     dt = 1.0e-8
     bins = np.arange(0, 150)
     for j, file in enumerate(filenames):
-        print(file)
+        print (file)
         finalEnergy = []
         finalEnergyFilter = []
         data = np.load(os.path.join(basedir, file))
@@ -334,9 +334,9 @@ def test3DGrid(emfile):
     ax = fig.add_subplot(111, projection="3d")
     ax.plot(path3D[:, 0], path3D[:, 1], path3D[:, 2])
 
-    print(path3D[:, 0])
-    print(path3D[:, 1])
-    print(path3D[:, 2])
+    print (path3D[:, 0])
+    print (path3D[:, 1])
+    print (path3D[:, 2])
     plt.show()
 
 

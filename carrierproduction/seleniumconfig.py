@@ -43,4 +43,4 @@ def castType(stringData):
 
 if __name__ == "__main__":
     settings = readConfigFile("./config.txt")
-    print(settings)
+    print (settings)
