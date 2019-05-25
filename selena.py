@@ -31,7 +31,7 @@ def main(argv):
         elif opt == "-n":
             nEvents = int(arg)
 
-    print("Config file is %s" % configfile)
+    print ("Config file is %s" % configfile)
 
     # Setup and run the simulation
     settings = sc.readConfigFile(configfile)
@@ -82,7 +82,7 @@ def main(argv):
 
 
 def printhelp():
-    print("python selena.py -c <path to config file> -n <number to simulate>")
+    print ("python selena.py -c <path to config file> -n <number to simulate>")
 
 
 if __name__ == "__main__":
