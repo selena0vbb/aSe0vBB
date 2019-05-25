@@ -1,11 +1,20 @@
+import sys
 import numpy as np
 import os
 import regex as re
 import pwlf
-import matplotlib.pyplot as plt
-import ROOT as rt
+
+try:
+    import matplotlib.pyplot as plt
+except:
+    pass
+
 import scipy.signal as scp
+import tqdm
+
+sys.path.append("..")
 import processedPulse as proc
+import ROOT as rt
 
 
 def readBatchFiles(filepath, pattern="*.npy"):
@@ -57,15 +66,17 @@ def readBatchFilesCso(filepath, pattern="*.cso"):
 
     for i, fr in enumerate(files2Read):
         if i == 0:
-            simOutFile = proc.loadPickleObject(fr)
+            simOutFile = proc.loadPickleObject(os.path.join(filepath, fr))
         else:
-            simOutFileTemp = procc.loadPickleObject(fr)
+            simOutFileTemp = proc.loadPickleObject(os.path.join(filepath, fr))
             # Check if settings are the same before combining
             if simOutFile.settings == simOutFileTemp.settings:
-                simOutpFile.addPulses(simOutFileTemp.getPulses())
+                simOutFile.addPulses(simOutFileTemp.getPulses())
             else:
-                Print("Incompatible settings. Files not concatenated.")
+                print ("Incompatible settings. Files not concatenated.")
                 return
+
+    return simOutFile
 
 
 def getEnergySpectrum(data, w=0.05):
@@ -132,23 +143,23 @@ def writeBinFiles(
     addTwice=False,
 ):
 
-    data = readBatchFiles(infilepath, inpattern)
+    data = readBatchFilesCso(infilepath, inpattern)
     Ns = 50000
     nNoise = 3000
     noise = np.zeros(Ns)
     q = 1.6e-19
     w = 0.05
-    N = data.shape[0]
+    N = len(data.getPulses())
 
     # parameters for chunking data into smaller files
-    numberOfPulsesPerFile = 2500
+    numberOfPulsesPerFile = 500
     maxNumberOfSamples = numberOfPulsesPerFile * Ns
     totalNumberOfSamples = N * Ns
     numberOfIterations = int(np.ceil(float(N) / numberOfPulsesPerFile))
     filesWritten = []
 
     if addNoise:
-        rootfile = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\Se_2000V_Co57_newfilter_Oct31_1_FFT_500mu_e.root"  # hardcoding rootfile for now
+        rootfile = "/home/apiers/mnt/rocks/selena/data/Se_2000V_Co57_newfilter_Oct31_1_FFT_500mu_e.root"  # hardcoding rootfile for now
         f = rt.TFile(rootfile)
         setree = f.Get("SeTree")
         noiseLeaf = setree.GetLeaf("wf")
@@ -160,39 +171,53 @@ def writeBinFiles(
         splitfilename = outfile.split(".")
         chunkOutfile = splitfilename[0] + "%i." % j + splitfilename[1]
         filesWritten.append(chunkOutfile)
-        print(filesWritten)
+
         # Create the numpy array to store all pulses in (save time over constantly appending a list)
         pulses = np.zeros(maxNumberOfSamples, "uint16")
         pulseCounter = 0
 
         # Iterate over each pulse in the data, convert to ADC unsigned 16bit int
-        print(min(numberOfPulsesPerFile, N - numberOfPulsesPerFile * j))
-        for i in range(min(numberOfPulsesPerFile, N - numberOfPulsesPerFile * j)):
+        for i in tqdm.tqdm(
+            range(min(numberOfPulsesPerFile, N - numberOfPulsesPerFile * j))
+        ):
             cnt = numberOfPulsesPerFile * j + i
-            print(i)
             try:
                 energyBoolean = (
-                    abs(data[cnt][1][np.logical_not(np.isnan(data[cnt][1]))][-1])
+                    abs(
+                        data.getPulse(cnt).timeSeries[
+                            np.logical_not(
+                                np.isnan(data.getPulse(cnt).timeSeries[:, 1])
+                            ),
+                            1,
+                        ][-1]
+                    )
                     > minEnergy * q / w
                 )
             except:
                 energyBoolean = False
             if energyBoolean:
-                print(
-                    abs(data[cnt][1][np.logical_not(np.isnan(data[cnt][1]))][-1])
-                    * w
-                    / q
-                )
                 singlePulse = convertPulse2ADC(
-                    data[cnt][0], data[cnt][1], fs=fs, Ns=Ns, conversion=conversion
+                    data.getPulse(cnt).timeSeries[:, 0],
+                    data.getPulse(cnt).timeSeries[:, 1],
+                    fs=fs,
+                    Ns=Ns,
+                    conversion=conversion,
                 )
 
-                if data.shape[1] == 4:
+                if data.getPulse(cnt).timeSeries.shape[1] == 4:
                     singlePulseA = convertPulse2ADC(
-                        data[cnt][0], data[cnt][2], fs=fs, Ns=Ns, conversion=conversion
+                        data.getPulse(cnt).timeSeries[:, 0],
+                        data.getPulse(cnt).timeSeries[:, 2],
+                        fs=fs,
+                        Ns=Ns,
+                        conversion=conversion,
                     )
                     singlePulseB = convertPulse2ADC(
-                        data[cnt][0], data[cnt][3], fs=fs, Ns=Ns, conversion=conversion
+                        data.getPulse(cnt).timeSeries[:, 0],
+                        data.getPulse(cnt).timeSeries[:, 3],
+                        fs=fs,
+                        Ns=Ns,
+                        conversion=conversion,
                     )
 
                 if filterPulse:
@@ -201,7 +226,7 @@ def writeBinFiles(
                         singlePulse, lowcut=fcut[0], highcut=fcut[1], fs=fs
                     )
 
-                    if data.shape[1] == 4:
+                    if data.getPulse(i).timeSeries.shape[1] == 4:
                         singlePulseA = butter_bandpass_electronic_filter(
                             singlePulseA, lowcut=fcut[0], highcut=fcut[1], fs=fs
                         )
@@ -216,7 +241,6 @@ def writeBinFiles(
                         if k % nNoise == 0:
                             setree.GetEntry(entryCounter)
                             entryCounter = (entryCounter + 1) % nEntries
-                            print(noise[0])
 
                             # matches baseline noise between two events
                             if k != 0:
@@ -231,7 +255,6 @@ def writeBinFiles(
                                 noiseOffset = (
                                     endPreviousSegmentMean - beginCurrentSegMean
                                 )
-                                print(noiseOffset)
                             else:
                                 noiseOffset = 0
 
@@ -251,10 +274,10 @@ def writeBinFiles(
                         pulses[
                             pulseCounter * Ns : (pulseCounter + 1) * Ns
                         ] = singlePulse.astype("uint16")
-                        if data.shape[1] == 4:
-                            singlePulseA += noise
+                        if data.getPulse(i).timeSeries.shape[1] == 4:
+                            singlePulseA  # += noise
                             singlePulseA.astype("uint16")
-                            singlePulseB += noise
+                            singlePulseB  # += noise
                             singlePulseB.astype("uint16")
 
                         pulseCounter += 1
@@ -263,12 +286,13 @@ def writeBinFiles(
 
             if returnPulse:
                 if i == returnPulseIdx:
-                    if data.shape[1] == 4:
+                    if data.getPulse(i).timeSeries.shape[1] == 4:
                         return (singlePulse, singlePulseA, singlePulseB)
                     else:
                         return singlePulse
         pulses[0 : pulseCounter * Ns].tofile(chunkOutfile)
 
+        # return pulses
     # read the binary files using file operations and keep writing to the same file
     # combineDatFiles(filesWritten, outfile)
 
@@ -298,9 +322,9 @@ def generateRootFile(path, pattern, outputfile):
     depth = []
     energy = []
     q, w = (1.6e-19, 0.05)
-    print(data.shape[0])
+    print (data.shape[0])
     for i in range(5):  # data.shape[0]):
-        print(i)
+        print (i)
         time = data[i][0]
         pulse = data[i][1]
         if data[i][0].shape == (1,):
@@ -344,12 +368,12 @@ def convertPulse2ADC(
     if t.size <= 1:
         return np.array([]).astype(datatype)
     sampleRate = 1.0 / fs
-    tTotal = Ns * sampleRate
+    tTotal = round(Ns * sampleRate)
     dt = np.diff(t)[0]
 
     # Create the pulse to pre and post append
     prePulse = np.zeros(int(prePulseTime / dt))
-    postPulse = np.min(signal) * np.ones(
+    postPulse = signal[-1] * np.ones(
         int(round((tTotal - t.size * dt - prePulseTime) / dt))
     )
 
@@ -389,19 +413,69 @@ def butter_bandpass_electronic_filter(data, lowcut, highcut, fs, order=1):
 
 
 if __name__ == "__main__":
-    testdata = readBatchFiles(
-        r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield",
-        "pixel_122kev_sio2_4000V_5M_pt\d+.npy",
-    )
-    # energy = getEnergySpectrum(testdata)
-    # plt.hist(energy, bins=np.arange(0,140))
+    # simFileObj = readBatchFilesCso("/home/apiers/mnt/rocks/selena/data/carrier/coplanar","coplanar_1M_1degBeam_varnehp_160V_pt[0].cso")
+    # coplanarEnergy = []
+    # w = 0.0407
+    # for pulse in simFileObj.getPulses():
+    #     coplanarEnergy.append(pulse.signalMaximum[0]*w)
+
+    # fig, ax = plt.subplots(1,1, figsize=(14,9))
+    # ax.set_yscale("log")
+    # ax.hist(coplanarEnergy, bins=140, linewidth=3, histtype="step", label="Coplanar", density=True)
     # plt.show()
-    # fitLinearPiecewise(testdata[4][0], testdata[4][1], 2)
-    # readBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\realData\Se_2500V_Co57_newfilter_Oct31_1.dat')
-    # writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\co57\co57_4000V_75deg_bin.dat',r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\co57', 'pixel_Co57_sio2_4000V_75deg_200k_pt\d+.npy', addNoise=True, filterPulse=True)
-    # writeBinFiles(r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield\122_4000V_bin.dat', r'C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield', 'pixel_122kev_sio2_4000V_5M_pt\d+.npy', addNoise=True, filterPulse=True)
-    generateRootFile(
-        r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\pixel_detector\122keV\sio2\Efield",
-        r"pixel_122kev_sio2_4000V_5M_pt\d+.npy",
-        "./pixel_122kev_sio2_4000V_sim_results.root",
+
+    pulseRaw = writeBinFiles(
+        "/home/apiers/mnt/rocks/selena/data/carrier/extendedSize/pixel_test.dat",
+        "/home/apiers/mnt/rocks/selena/data/carrier/extendedSize",
+        inpattern="pixel_100k_3D_varnehp_trace_pt0.cso",
+        Ns=50000,
+        conversion=800 * 0.0407 / (122 * 1.6e-19),
+        fs=250.0,
+        fcut=[5300.0 * 1e-6, 530000.0 * 1e-6],
+        addNoise=False,
+        filterPulse=True,
+        minEnergy=20,
+        returnPulse=True,
+        returnPulseIdx=9,
+        addTwice=False,
     )
+
+    fig, ax = plt.subplots(1, 1, figsize=(14, 9))
+    ax.plot(scp.decimate(pulse, 10), "k", linewidth=3, label="Noisy Simulated Pulse")
+
+    ax.plot(
+        scp.decimate(pulseRaw + 3650, 10), "--b", linewidth=2, label="Simulated Pulse"
+    )
+    ax.plot((3600 - 800) * np.ones(5000), "-r", linewidth=3, label="Actual Energy")
+    ax.legend(fontsize=18)
+    ax.set_xlabel("Time [samples]", fontsize=18)
+    ax.set_ylabel("Amplitude [ADU]", fontsize=18)
+    ax.set_xlim(2200, 3000)
+    fig.savefig(
+        "/home/apiers/Documents/UW/CENPA Annual Report/2019/Selena/pixelnoise.png",
+        bbox_inches="tight",
+    )
+    plt.show()
+
+    # fig, ax = plt.subplots(1, 1, figsize=(14,9))
+    # ax.plot(scp.decimate(pulse[0],10), "k", linewidth=3, label="Noisy Differential Signal")
+
+    # ax.plot(scp.decimate(pulse[1]+3900,10), "--b", linewidth=2, label="Individual Pulses")
+    # ax.plot(scp.decimate(pulse[2]+3900,10), "--b", linewidth=2)
+    # ax.plot((3900-800)*np.ones(5000), "-r", linewidth=3, label="Actual Energy")
+    # ax.legend(fontsize=18)
+    # ax.set_xlabel("Time [samples]", fontsize=18)
+    # ax.set_ylabel("Amplitude [ADU]", fontsize=18)
+    # ax.set_xlim(2200, 3000)
+    # fig.savefig( "/home/apiers/Documents/UW/CENPA Annual Report/2019/Selena/coplanarnoise.png", bbox_inches="tight")
+    # plt.show()
+
+    # # Downsample all Pulses and Reshape
+    # dsPulses = scp.decimate(pulse, 10)
+    # plt.plot(dsPulses)
+    # plt.show()
+    # dsPulses = np.reshape(dsPulses, (5000, 40), order="F")
+
+    # minVal = np.min(dsPulses, axis=0)
+    # plt.hist(minVal)
+    # plt.show()
