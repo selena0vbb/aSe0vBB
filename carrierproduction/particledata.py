@@ -1,8 +1,6 @@
 # Module containing classes/functions for handling the Geant4 particle data
 # First step for electron hole pair production
 
-# Libraries to import
-import ROOT as rt
 
 try:
     import matplotlib.pyplot as plt
@@ -32,6 +30,8 @@ from plot import (
     interpEField3D,
 )
 
+# Libraries to import
+import ROOT as rt
 
 class gEvent(object):
     """docstring for gEvent"""
@@ -641,6 +641,7 @@ class CarrierSimulation(object):
         simPulseObj.setBinnedEnergy(binnedEnergy)
         simPulseObj.setNehp(nehp, nehpf)
         simPulseObj.setWehp(wehp)
+        simPulseObj.setScaleFactor(self.scale)
 
         # Set up the boundaries of the em simulation
         if self.settings["USE_BOUNDARY_LIMITS"]:

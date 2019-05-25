@@ -3,7 +3,6 @@ import getopt
 import numpy as np
 
 sys.path.append("./carrierproduction")
-print(sys.path)
 import particledata as pd
 import processedPulse as proc
 import seleniumconfig as sc
