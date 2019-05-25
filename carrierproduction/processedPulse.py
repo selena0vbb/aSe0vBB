@@ -66,6 +66,8 @@ class SimulatedPulse(object):
         outstr += str(self.timeSeries.shape[1] - 1)
         outstr += "\n\tMax Pulse Height (e): "
         outstr += str(self.signalMaximum)
+        outstr += "\n\tScale Factor (for Coplanar): "
+        outstr += str(self.scaleFactor)
 
         # Carrier Dynamic setting information
         settingDictionary = self.getSimSettings()
@@ -101,7 +103,7 @@ class SimulatedPulse(object):
             self.timeTotalElectrons = kwargs["TOTAL_TIME_ELECTRONS"]
             self.workFunction = kwargs["WORK_FUNCTION"]
         except KeyError:
-            print("Invalid keys in kwargs")
+            print ("Invalid keys in kwargs")
             return
 
     def setG4Event(self, g4Event):
@@ -136,6 +138,9 @@ class SimulatedPulse(object):
 
     def setSignalMaximum(self, signalMax):
         self.signalMaximum = signalMax
+
+    def setScaleFactor(self, scaleFactor):
+        self.scaleFactor = scaleFactor
 
     # Define getters
     def getSimSettings(self):
@@ -172,6 +177,9 @@ class SimulatedPulse(object):
 
     def getTimeSeries(self):
         return self.timeSeries
+
+    def getScaleFactor(self):
+        return self.scaleFactor
 
     # Computing characteristics of the pulse
     def computeStats(self):
@@ -218,7 +226,7 @@ class SimulatedOutputFile(object):
         super(SimulatedOutputFile, self).__init__()
 
         if type(settings) is not dict:
-            print("Must pass a dictionary of settings.")
+            print ("Must pass a dictionary of settings.")
             return
 
         self.settings = settings
@@ -236,7 +244,7 @@ class SimulatedOutputFile(object):
                     self.settings["OUTPUT_DIR"], self.settings["OUTPUT_FILE"]
                 )
             except KeyError:
-                print("No valid output file dir/name keys in settings.")
+                print ("No valid output file dir/name keys in settings.")
                 return
 
         self.pulses = []
@@ -262,7 +270,7 @@ class SimulatedOutputFile(object):
         # Add git info
         infostr += self.getGitInfoStr()
 
-        print(infostr)
+        print (infostr)
 
     def addPulses(self, simulatedPulses):
         try:
@@ -270,7 +278,7 @@ class SimulatedOutputFile(object):
         except TypeError:
             self.pulses.append(simulatedPulses)
         except:
-            print("Error Adding pulse to object")
+            print ("Error Adding pulse to object")
 
     def getPulses(self):
         return self.pulses
@@ -279,7 +287,7 @@ class SimulatedOutputFile(object):
         try:
             return self.pulses[index]
         except IndexError:
-            print("Invalid index for simulated pulses\n")
+            print ("Invalid index for simulated pulses\n")
 
     def setGitInfo(self, repopath=None):
         """ Scrapes information about the git status and adds to the class """
@@ -393,17 +401,17 @@ if __name__ == "__main__":
     simpulse.setNehp(nehp, nehpf)
     simpulse.setTimeSeries(t, signal)
     simpulse.computeStats()
-    print(simpulse)
+    print (simpulse)
     oldclass = str(simpulse)
 
     # Create simulated output file object
     simfile = SimulatedOutputFile(settings=config, outputfile="./test.npy")
     simfile.addPulses(simpulse)
     simfile.setGitInfo("/home/apiers/mnt/rocks/aSe0vBB")
-    print("\n")
+    print ("\n")
     simfile.printInfo()
-    print("\n")
-    print(simfile.getGitInfoStr())
+    print ("\n")
+    print (simfile.getGitInfoStr())
 
     # Save file
     savePickleObject(simfile, simfile.outputfile)
