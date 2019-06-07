@@ -716,6 +716,42 @@ def inducedCharge(
     return qA, qB, qA - qB
 
 
+def computeEffectiveArea(
+    E, goodRange, xbounds, dx, ypos=0, vDrift=14.0e-6, dt=0.1, limits=[]
+):
+    """
+    Computes the "effective area" of a multi electrode detector. Effective area is the ratio of number of initial charge particls
+    that at arrive at the electrode of interest to the total number of charge particles simulated. 
+    Inputs:
+        E - list of [pos, Efield]. Either 4 or 6 elements depending on ndims in the detector
+        wphiA - weighted potential of interested electrode. list of [pos weightedPotential]
+        wphiB - weighted potentail at the other electrode. 
+        xbounds - range in the x direction we scan over. [xmin, xmax]
+        dx - x step size
+        ypos - y position to set the inital charge deposition at
+        vDrift - drift velocity in mm^2/ (V*us)
+        dt - time in us
+    Outputs
+        effectiveArea - effective area of the detector
+    """
+
+    x = np.arange(xbounds[0], xbounds[1] + dx, dx)
+    carrierAtElectrodeCount = 0
+
+    for i in range(x.size):
+        ri = [x[i], ypos]
+        path = findMotion(ri, E, vDrift, dt, q=1, limits=limits)
+        # _, _, wpDiff = inducedCharge(wphiA, wphiB, path, q=1)
+
+        # if wpDiff[-1] < 0:
+        if np.any(
+            np.logical_and(path[-1, 0] > goodRange[:, 0], path[-1, 0] < goodRange[:, 1])
+        ):
+            carrierAtElectrodeCount += 1
+
+    return float(carrierAtElectrodeCount) / x.size
+
+
 if __name__ == "__main__":
     # (?# filename = r'C:\Users\alexp\Documents\UW\Research\Selenium\test_weighted_potential.txt')
     # testHeader, testData = readComsolFile(filename)
