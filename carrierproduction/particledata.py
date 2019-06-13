@@ -320,62 +320,67 @@ class gEvent(object):
 class gEventCollection(object):
     """docstring for gEventCollection"""
 
-    def __init__(self, rootFilename, eventCounterRange=None, **kwargs):
+    def __init__(self, rootFilename=None, eventCounterRange=None, **kwargs):
 
         self.rootFilename = rootFilename
         self.collection = []
 
-        # Read the data from the file
-        f = rt.TFile(rootFilename)
-        # Gets a tree with the name aSeData. Current name from Geant4 simulation.
-        tree = f.Get("aSeData")
-        eventID = -1
-        eventCounter = 0
-        hitsList = []
+        if rootFilename:
+            # Read the data from the file
+            f = rt.TFile(rootFilename)
+            # Gets a tree with the name aSeData. Current name from Geant4 simulation.
+            tree = f.Get("aSeData")
+            eventID = -1
+            eventCounter = 0
+            hitsList = []
 
-        # Iterate over all of the entries in the tree, extracting tuple i
-        for entry in tree:
-            if eventID != entry.EventID:
-                if eventID != -1:
-                    if eventCounterRange != None:
-                        if eventCounter >= eventCounterRange[0]:
+            # Iterate over all of the entries in the tree, extracting tuple i
+            for entry in tree:
+                if eventID != entry.EventID:
+                    if eventID != -1:
+                        if eventCounterRange != None:
+                            if eventCounter >= eventCounterRange[0]:
+                                self.collection.append(
+                                    gEvent(gEventID=eventID, hits=hitsList)
+                                )
+                        else:
                             self.collection.append(
                                 gEvent(gEventID=eventID, hits=hitsList)
                             )
-                    else:
-                        self.collection.append(gEvent(gEventID=eventID, hits=hitsList))
-                    eventCounter += 1
-                hitsList = []
-                eventID = entry.EventID
-                hit = {
-                    "trackID": entry.TrackID,
-                    "parentID": entry.ParentID,
-                    "x": entry.x,
-                    "y": entry.y,
-                    "z": entry.z,
-                    "energy": entry.energy * 1e3,
-                    "particle": entry.ParticleType,
-                    "creatorProcess": entry.ProcessName,
-                }
-                hitsList.append(hit)
+                        eventCounter += 1
+                    hitsList = []
+                    eventID = entry.EventID
+                    hit = {
+                        "trackID": entry.TrackID,
+                        "parentID": entry.ParentID,
+                        "x": entry.x,
+                        "y": entry.y,
+                        "z": entry.z,
+                        "energy": entry.energy * 1e3,
+                        "particle": entry.ParticleType,
+                        "creatorProcess": entry.ProcessName,
+                    }
+                    hitsList.append(hit)
 
-            else:
-                hit = {
-                    "trackID": entry.TrackID,
-                    "parentID": entry.ParentID,
-                    "x": entry.x,
-                    "y": entry.y,
-                    "z": entry.z,
-                    "energy": entry.energy * 1e3,
-                    "particle": entry.ParticleType,
-                    "creatorProcess": entry.ProcessName,
-                }
-                hitsList.append(hit)
+                else:
+                    hit = {
+                        "trackID": entry.TrackID,
+                        "parentID": entry.ParentID,
+                        "x": entry.x,
+                        "y": entry.y,
+                        "z": entry.z,
+                        "energy": entry.energy * 1e3,
+                        "particle": entry.ParticleType,
+                        "creatorProcess": entry.ProcessName,
+                    }
+                    hitsList.append(hit)
 
-            if eventCounterRange != None and eventCounter >= eventCounterRange[1]:
-                break
+                if eventCounterRange != None and eventCounter >= eventCounterRange[1]:
+                    break
 
-        self.totalNEvents = len(self.collection)
+            self.totalNEvents = len(self.collection)
+        else:
+            self.totalNEvents = 0
 
     def __str__(self):
         return "Geant4 Event Collection. N=%i" % len(self.collection)
