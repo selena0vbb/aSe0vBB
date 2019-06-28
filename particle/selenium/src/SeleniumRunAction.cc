@@ -2,6 +2,7 @@
 
 #include "SeleniumRunAction.hh"
 #include "SeleniumAnalysis.hh"
+#include "SeleniumEventAction.hh"
 
 #include "G4Run.hh"
 #include "G4RunManager.hh"
@@ -26,6 +27,9 @@ SeleniumRunAction::SeleniumRunAction(G4String name) : G4UserRunAction()
 	analysisManager->CreateH1("EneDepSe", "Energy Deposited in Selenium", 150, 0., 150.*keV, "keV");
 	analysisManager->CreateH1("EneDepSiO2", "Energy Deposited in Silicon Dioxide Layer", 150, 0., 150.*keV, "keV");
 
+	// Define vector for ntuple columnes
+	std::vector<G4int> secondaryTracks;
+
 	if(!SIMPLE)
 	{
 		// Creating Ntuple to store data about energy and eventID for events in the silicon dioxide
@@ -47,6 +51,7 @@ SeleniumRunAction::SeleniumRunAction(G4String name) : G4UserRunAction()
 		analysisManager->CreateNtupleDColumn("energy");
 		analysisManager->CreateNtupleSColumn("ParticleType");
 		analysisManager->CreateNtupleSColumn("ProcessName");
+		analysisManager->CreateNtupleIColumn("secondaryTrackID");
 		analysisManager->FinishNtuple();
 	}
 

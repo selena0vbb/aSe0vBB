@@ -74,10 +74,13 @@ void SeleniumEventAction::EndOfEventAction(const G4Event* event)
 			// Get number of hits. Iterate over all and add to Ntuple
 			G4int numberOfHits = hc->GetSize();
 
+
 			if(numberOfHits > 0)G4cout << numberOfHits << G4endl;
 			for( int i = 0; i < numberOfHits; i++)
 			{
 				hit = (*hc)[i];
+
+				// Fill ntuples with hit values
 				analysisManager->FillNtupleIColumn(1, 0, eventID);
 				analysisManager->FillNtupleIColumn(1, 1, hit->GetTrackID());
 				analysisManager->FillNtupleIColumn(1, 2, hit->GetParentID());
@@ -87,6 +90,8 @@ void SeleniumEventAction::EndOfEventAction(const G4Event* event)
 				analysisManager->FillNtupleDColumn(1, 6, hit->GetEdep());
 				analysisManager->FillNtupleSColumn(1, 7, hit->GetParticleDefinition()->GetParticleName());
 				analysisManager->FillNtupleSColumn(1, 8, hit->GetCreatorProcessName());
+				// If no secondary tracks, -1, otherwise get the first secondary track ID
+				hit->GetSecondaryTrack().size() == 0 ? analysisManager->FillNtupleIColumn(1, 9, -1) : analysisManager->FillNtupleIColumn(1, 9, hit->GetSecondaryTrack()[0]->GetTrackID());
 				analysisManager->AddNtupleRow(1);
 
 			}

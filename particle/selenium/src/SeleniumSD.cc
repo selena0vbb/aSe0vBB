@@ -64,6 +64,16 @@ G4bool SeleniumSD::ProcessHits(G4Step* step, G4TouchableHistory* history)
 		hit->SetCreatorProcessName(step->GetTrack()->GetCreatorProcess()->GetProcessName());
 	}
 
+	// Find the secondary particles created by this hit and add them 
+	std::vector<const G4Track *> secondaryTracks;
+	const std::vector<const G4Track *> * secondaryTracksFromStep = step->GetSecondaryInCurrentStep();
+
+	for (int i = 0; i < secondaryTracksFromStep->size(); ++i)
+	{
+		secondaryTracks.push_back(secondaryTracksFromStep->at(i));
+	}
+	hit->SetSecondaryTrack(secondaryTracks);
+
 	// Add hit to hit collection
 	fHitsCollection->insert(hit);
 
