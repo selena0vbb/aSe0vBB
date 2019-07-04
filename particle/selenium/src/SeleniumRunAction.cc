@@ -51,7 +51,7 @@ SeleniumRunAction::SeleniumRunAction(G4String name) : G4UserRunAction()
 		analysisManager->CreateNtupleDColumn("energy");
 		analysisManager->CreateNtupleSColumn("ParticleType");
 		analysisManager->CreateNtupleSColumn("ProcessName");
-		analysisManager->CreateNtupleIColumn("secondaryTrackID");
+		analysisManager->CreateNtupleIColumn("SecondaryTrackID");
 		analysisManager->FinishNtuple();
 	}
 
