@@ -13,4 +13,5 @@
 #/gps/ang/mintheta 179 deg
 #/gps/ang/rot1 5.1 0 19 
 /analysis/setFileName /home/apiers/selena/data/particle/pixel_sio2_14kev_collimator1mm_10M.root
+/run/setCuts 0.5 um
 /run/beamOn 10000000

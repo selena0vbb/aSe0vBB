@@ -10,6 +10,7 @@
 /gps/ang/type iso
 /gps/ang/mintheta 179 deg
 /analysis/setFileName /home/apiers/mnt/rocks/selena/data/particle/test_secondary_tracks.root
+/run/setCut 0.5 um
 /run/beamOn 2000
 
 
