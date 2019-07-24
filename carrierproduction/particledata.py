@@ -16,6 +16,7 @@ from pathlib import Path
 import tqdm
 import cexprtk
 import processedPulse as pout
+import scipy.special
 
 # add the EM plot module to the path and import it
 sys.path.append("/home/apiers/aSe0vBB/EM Analysis")
@@ -99,6 +100,7 @@ class gEvent(object):
             boolTypeCheck.append(type(hit["energy"]) is float)
             boolTypeCheck.append(type(hit["particle"]) is str)
             boolTypeCheck.append(type(hit["creatorProcess"]) is str)
+            boolTypeCheck.append(type(hit["secondaryTrackID"]) is int)
 
             if all(boolTypeCheck):
                 self.hits.append(hit)
@@ -124,6 +126,7 @@ class gEvent(object):
             "energy": [],
             "particle": [],
             "creatorProcess": [],
+            "secondaryTrackID": [],
         }
         for hit in self.GetHits():
             flattenedData["trackID"].append(hit["trackID"])
@@ -134,6 +137,7 @@ class gEvent(object):
             flattenedData["energy"].append(hit["energy"])
             flattenedData["particle"].append(hit["particle"])
             flattenedData["creatorProcess"].append(hit["creatorProcess"])
+            flattenedData["secondaryTrackID"].append(hit["secondaryTrackID"])
 
         return flattenedData
 
@@ -316,6 +320,89 @@ class gEvent(object):
             val[xv, yv, zv],
         )
 
+    def computeTrackVectors(self):
+        """
+        Computes a set of vectors that describe the track orientation. Returns the delta r and r_i of each step to fully reconstruct the track
+        """
+
+        deltaVector = []
+        rVector = []
+        prevTrackID = 0
+        prevPosition = np.zeros(3)
+        for i in range(len(self.hits)):
+            if i == 0:
+                prevPosition = gEvent.getPosition(self.hits[i])
+                prevTrackID = self.hits[i]["trackID"]
+                continue
+
+            if self.hits[i]["trackID"] != prevTrackID:
+
+                # Find the hit of the parent that created this
+                potentialParentHits = [
+                    it for it in self.hits if it["trackID"] == self.hits[i]["parentID"]
+                ]
+                parentHit = [
+                    it
+                    for it in potentialParentHits
+                    if it["secondaryTrackID"] == self.hits[i]["trackID"]
+                ]
+                # If we can find the parent, use as the previous position, otherwise, minimize distance for estimation
+                if parentHit:
+                    prevPosition = gEvent.getPosition(parentHit[0])
+                else:
+                    # Look for nearest postition
+                    if potentialParentHits:
+                        parentIdx = gEvent.findMinDistance(
+                            self.hits[i], potentialParentHits
+                        )
+                        prevPosition = gEvent.getPosition(
+                            potentialParentHits[parentIdx]
+                        )
+                    else:
+                        parentIdx = gEvent.findMinDistance(
+                            self.hits[i],
+                            [
+                                it
+                                for it in self.hits
+                                if it["trackID"] != self.hits[i]["trackID"]
+                            ],
+                        )
+                        prevPosition = gEvent.getPosition(self.hits[parentIdx])
+
+            deltaVector.append(gEvent.getPosition(self.hits[i]) - prevPosition)
+            rVector.append(prevPosition)
+
+            prevPosition = gEvent.getPosition(self.hits[i])
+            prevTrackID = self.hits[i]["trackID"]
+
+        return np.array(deltaVector), np.array(rVector)
+
+    @staticmethod
+    def getPosition(hit):
+        """ 
+        Gets the position vector from an individual hit
+        """
+        posStr = ["x", "y", "z"]
+        return np.array([hit[i] for i in posStr])
+
+    @staticmethod
+    def findMinDistance(hit, potentialHits):
+        """
+        Finds the hit with the minimum distance from the current hit in the list of potentialHits
+        """
+        minIndex = 0
+        minDistance = np.inf
+
+        for i, phit in enumerate(potentialHits):
+            distance = np.sqrt(
+                np.sum((gEvent.getPosition(hit) - gEvent.getPosition(phit)) ** 2)
+            )
+            if distance < minDistance and distance > 0:
+                minDistance = distance
+                minIndex = i
+
+        return minIndex
+
 
 class gEventCollection(object):
     """docstring for gEventCollection"""
@@ -360,6 +447,15 @@ class gEventCollection(object):
                         "particle": entry.ParticleType,
                         "creatorProcess": entry.ProcessName,
                     }
+
+                    # Add additional parameters to the hit. For backwords compatibility
+                    try:
+                        hit["secondaryTrackID"] = entry.SecondaryTrackID
+                    except AttributeError:
+                        hit["secondaryTrackID"] = -1  # Default value. No information
+                    except:
+                        pass
+
                     hitsList.append(hit)
 
                 else:
@@ -373,6 +469,15 @@ class gEventCollection(object):
                         "particle": entry.ParticleType,
                         "creatorProcess": entry.ProcessName,
                     }
+
+                    # Add additional parameters to the hit. For backwords compatibility
+                    try:
+                        hit["secondaryTrackID"] = entry.SecondaryTrackID
+                    except AttributeError:
+                        hit["secondaryTrackID"] = -1  # Default value. No information
+                    except:
+                        pass
+
                     hitsList.append(hit)
 
                 if eventCounterRange != None and eventCounter >= eventCounterRange[1]:
@@ -617,6 +722,78 @@ class CarrierSimulation(object):
 
         return qHoleArray, qElectronArray
 
+    def applyColumnarRecombination(self, event, energy):
+        """
+        Computes the charge yield after applying a columnar recombination model on the data following Ausman and Mclean. https://doi.org/10.1063/1.88104
+
+        Inputs:
+            event - gEvent object
+            energy - Nx1 numpy array of the energy in each spatial bin assosciated with the hits
+        Outputs:
+            nehp - Nx1 numpy array of the effective number of electron hole pairs produced in each binned energy location (N bins)
+        """
+
+        # Get parameters from the settings file
+        b = self.settings["TRACK_RADIUS"]
+        N0 = self.settings["LINEAR_IONIZATION_DENSITY"]
+        w0 = self.settings["SATURATION_WF"]
+
+        # Compute saturation charge (max number of charge carriers created at infinite field)
+        q0 = energy / w0
+
+        # Compute diffusion and and recombination coefficients
+        mu = self.settings["MU_HOLES"] + self.settings["MU_ELECTRONS"]
+        kb = 1.38e-17  # in mm^2 kg s^-2 K^-1
+        T = 293
+        q = self.settings["ELEMENTARY_CHARGE"]
+        D = mu * kb * T / q
+
+        eps0 = 8.85e-15
+        epsr = 6
+        alpha = (q * mu) / (eps0 * epsr)
+
+        # Calculate each step of the track
+        drTrack, _ = event.computeTrackVectors()
+
+        # Find the mean E-field over the extent of the track
+        fevent = event.flattenEvent()
+        pos = ["x", "y", "z"]
+        rAve = [
+            np.sum(np.array(fevent[i]) * np.array(fevent["energy"]))
+            / np.sum(fevent["energy"])
+            for i in pos
+        ]
+
+        if self.settings["THREE_DIMENSIONS"]:
+            efieldAve = interpEField3D(rAve[0], rAve[1], rAve[2], self.Etot)
+            dotProduct = np.dot(drTrack, np.squeeze(efieldAve))
+            drTrackMag = np.sqrt(np.sum(drTrack ** 2, axis=1))
+        else:
+            efieldAve = interpEField2D(rAve[1], rAve[2], self.Etot)
+            dotProduct = np.dot(drTrack[:, 1:], np.squeeze(efieldAve))
+            drTrackMag = np.sqrt(np.sum(drTrack[:, 1:] ** 2, axis=1))
+
+        meanSinThetaSquare = np.mean(
+            np.sin(
+                np.arccos(dotProduct / (drTrackMag * np.sqrt(np.sum(efieldAve ** 2))))
+            )
+            ** 2
+        )
+
+        # Compute x, defined in paper
+        x = (
+            mu ** 2
+            * meanSinThetaSquare
+            * b ** 2
+            * np.sum(efieldAve ** 2)
+            / (4 * D ** 2)
+        )
+        q = q0 / (
+            1 + (alpha * N0 / (4 * np.pi * D)) * np.exp(x) * scipy.special.kn(0, x)
+        )
+
+        return q.astype("int"), meanSinThetaSquare
+
     def computeChargeSignal(self, eventIdx):
         """
 		Uses the number of electron hole pairs spatial distribution from the event and the electrostatic simulation from COMSOL to determine the induced charge signal on the detector plates
@@ -635,12 +812,21 @@ class CarrierSimulation(object):
         simPulseObj = pout.SimulatedPulse(**self.settings)
 
         # Gets the carrier information
+
         event = self.eventCollection.collection[eventIdx]
         nehp, nehpNoise, bins, xv, yv, zv, wehp, binnedEnergy = event.createCarriers(
             self.wehpExpression, self.Etot, **self.settings
         )
         nehpf = nehpNoise  # mean nehp plus the model dependent noise
         nehpf = nehpf.astype(int)
+
+        # Compute recombination model
+        if self.settings["COLUMNAR_RECOMBINATION"]:
+            nehp, meanSinThetaSquare = self.applyColumnarRecombination(
+                event, nehp * wehp
+            )
+            nehpf, _ = self.applyColumnarRecombination(event, nehpf * wehp)
+            simPulseObj.setSinThetaSquare(meanSinThetaSquare)
 
         simPulseObj.setG4Event(event)
         simPulseObj.setBinnedPosition(bins[0][xv], bins[1][yv], bins[2][zv])

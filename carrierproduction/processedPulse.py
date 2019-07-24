@@ -25,6 +25,7 @@ class SimulatedPulse(object):
         self.wehp = []
         self.nehp = []
         self.nehpf = []
+        self.sinTheta = 0
 
         # Pulse information
         self.timeSeries = []
@@ -57,6 +58,8 @@ class SimulatedPulse(object):
         outstr += str(self.nehp)
         outstr += "\n\tFluctuating Nehp: "
         outstr += str(self.nehpf)
+        outstr += "\n\tTrack-Field Mean Sin Theta: "
+        outstr += str(self.sinTheta)
         outstr += "\nPulse information: "
         outstr += "\n\tNumber of time steps: "
         outstr += str(self.timeSeries[:, 0].size)
@@ -142,6 +145,9 @@ class SimulatedPulse(object):
     def setScaleFactor(self, scaleFactor):
         self.scaleFactor = scaleFactor
 
+    def setSinThetaSquare(self, sinTheta):
+        self.sinTheta = sinTheta
+
     # Define getters
     def getSimSettings(self):
         """ Returns a dictionary of the simulation settings """
@@ -180,6 +186,9 @@ class SimulatedPulse(object):
 
     def getScaleFactor(self):
         return self.scaleFactor
+
+    def getSinThetaSquare(self):
+        return self.sinTheta
 
     # Computing characteristics of the pulse
     def computeStats(self):
