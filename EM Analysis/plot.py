@@ -442,7 +442,11 @@ def interpEField2D(x, y, E, method="linear"):
     )
 
     # Create nd array of position
-    pos = np.array([x, y]).T
+    pos = np.array([x, y], ndmin=2).T
+
+    # If we have only 1 point, need to transpose so array has shape (npoints, 2)
+    if pos.shape[1] == 1:
+        pos = pos.T
 
     # Create output array of zeros
     EInterp = np.zeros(pos.shape)
@@ -481,7 +485,11 @@ def interpEField3D(x, y, z, E, method="linear"):
     )
 
     # Create nd array of position
-    pos = np.array([x, y, z]).T
+    pos = np.array([x, y, z], ndmin=2).T
+
+    # If we have only 1 point, need to transpose so array has shape (npoints, 2)
+    if pos.shape[1] == 1:
+        pos = pos.T
 
     # Create output array of zeros
     EInterp = np.zeros(pos.shape)
