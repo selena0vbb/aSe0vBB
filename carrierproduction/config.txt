@@ -6,12 +6,13 @@ CARRIER_GENERATION_BINOMIAL=0
 DARK_CURRENT_BINOMIAL=0
 CARRIER_LIFETIME_GEOMETRIC=1
 CARRIER_LIFETIME_POISSON=0
+CARRIER_SCHEMA=track
 
 # Recombination Model. Length units in mm (as always)
 COLUMNAR_RECOMBINATION=1
-TRACK_RADIUS=65.6e-7
-LINEAR_IONIZATION_DENSITY=1.05e6
-SATURATION_WF=0.018
+TRACK_RADIUS=2.0e-6
+LINEAR_IONIZATION_DENSITY=4.5e5
+SATURATION_WF=0.0055
 
 # EM settings
 CHARGE_DIFFERENCE=0
@@ -53,11 +54,11 @@ WORK_FUNCTION=0.018+449.0/E
 FAST=0
 PARALLEL_PROCESS=1
 NPROCESSORS=10.
-NEVENTS_PER_FILE=500
+NEVENTS_PER_FILE=600
 GIT_DIR=/home/apiers/aSe0vBB
-OUTPUT_DIR=/home/apiers/selena/data/carrier/recombination
-OUTPUT_FILE=pixel_columnar_recombination_test%i.cso
-EM_FILENAME=/home/apiers/selena/data/em/pixel_detector_2mmdiam_200umAse_3d_small.txt
-PARTICLE_FILENAME=/home/apiers/selena/data/particle/pixel_sio2_122kev_1degBeam_1M.root
-THREE_DIMENSIONS=1
+OUTPUT_DIR=/home/apiers/selena/data/carrier/debug
+OUTPUT_FILE=pixel_track_schema_wehp_column%i.cso
+EM_FILENAME=/home/apiers/selena/data/em/real_electrode.txt
+PARTICLE_FILENAME=/home/apiers/selena/data/particle/pixel_200umaSe_silayer_250nm_122kev_100k.root
+THREE_DIMENSIONS=0
 

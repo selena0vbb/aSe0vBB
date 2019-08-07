@@ -123,61 +123,40 @@ class gEvent(object):
             boolTypeCheck.append(type(hit["x"]) is float)
             boolTypeCheck.append(type(hit["y"]) is float)
             boolTypeCheck.append(type(hit["z"]) is float)
+            boolTypeCheck.append(type(hit["xi"]) is float)
+            boolTypeCheck.append(type(hit["yi"]) is float)
+            boolTypeCheck.append(type(hit["zi"]) is float)
             boolTypeCheck.append(type(hit["energy"]) is float)
             boolTypeCheck.append(type(hit["particle"]) is str)
             boolTypeCheck.append(type(hit["creatorProcess"]) is str)
             boolTypeCheck.append(type(hit["secondaryTrackID"]) is int)
 
             if all(boolTypeCheck):
-                self.hits.append(hit)
+                self.trackID.append(hit["trackID"])
+                self.parentID.append(hit["parentID"])
+                self.r.append([hit["x"], hit["y"], hit["z"]])
+                self.ri.append([hit["xi"], hit["yi"], hit["zi"]])
+                self.energy.append(hit["energy"])
+                self.particle.append(hit["particle"])
+                self.creatorProcess.append(hit["creatorProcess"])
+                self.secondaryTrackID.append(hit["secondaryTrackID"])
             else:
                 print ("One or more data type in the hit is invalid")
 
         except Exception as e:
             raise e
 
-    def flattenEvent(self):
-        """ Transforms the hit data from a list of dictionary into a dictionary of lists--therefore calling the dict member gets you list of all values in that event. Useful for plotting and data manipulation. Documentation assumes that there are N different hits.
-		Outputs:
-			eventData = {'trackID' : [], 'parentID' : [], 'x' : [], 'y' : [], 'z' : [], 'energy' : [], 'particle' : [], 'creatorProcess' : []}
-
-		"""
-
-        flattenedData = {
-            "trackID": [],
-            "parentID": [],
-            "x": [],
-            "y": [],
-            "z": [],
-            "energy": [],
-            "particle": [],
-            "creatorProcess": [],
-            "secondaryTrackID": [],
-        }
-        for hit in self.GetHits():
-            flattenedData["trackID"].append(hit["trackID"])
-            flattenedData["parentID"].append(hit["parentID"])
-            flattenedData["x"].append(hit["x"])
-            flattenedData["y"].append(hit["y"])
-            flattenedData["z"].append(hit["z"])
-            flattenedData["energy"].append(hit["energy"])
-            flattenedData["particle"].append(hit["particle"])
-            flattenedData["creatorProcess"].append(hit["creatorProcess"])
-            flattenedData["secondaryTrackID"].append(hit["secondaryTrackID"])
-
-        return flattenedData
-
     def plotH1(self, x="z", y="energy", nbins=200, figH=None):
         """
-		Plots histogram of two compatable variables. Default are energy vs z axis
-		Inputs:
+        Plots histogram of two compatable variables. Default are energy vs z axis
+        Inputs:
 
-		Outputs:
-			val - 1d array of the values of each histogram bin
-			bins - 1d array of nbins+1 values of the edge of each bin
-			ax - handle to the axis
-			fig - handle to the plotted figure
-		"""
+        Outputs:
+            val - 1d array of the values of each histogram bin
+            bins - 1d array of nbins+1 values of the edge of each bin
+            ax - handle to the axis
+            fig - handle to the plotted figure
+        """
         if not figH:
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -267,18 +246,18 @@ class gEvent(object):
 
         return val, binCenters
 
-    def createCarriers(self, wehpFunction=None, efield=None, **kwargs):
+    def createCarriersBin(self, wehpFunction=None, efield=None, **kwargs):
         """
-		Function that creates carriers from the energy distribution of the incoming gamma rays. Standard is to create in 3D
-		Inputs:
-			Wehp - work function of amorphous selenium
-			kwargs - key word arguments from the config file of the settings file
-		Outputs
-			nehp - the nonzero number of electron hole pairs created in spacce associated with the xv, yv, zv indicess
-			nehpFluctuations - nonzero nehp fluctuations
-			binCenters - list of the bincenters along each (x,y,z) axis
-			[xv, yv, zv] - indexes in the nehp matrix where the values are non zero
-		"""
+        Function that creates carriers from the energy distribution of the incoming gamma rays. Standard is to create in 3D
+        Inputs:
+            Wehp - work function of amorphous selenium
+            kwargs - key word arguments from the config file of the settings file
+        Outputs
+            nehp - the nonzero number of electron hole pairs created in spacce associated with the xv, yv, zv indicess
+            nehpFluctuations - nonzero nehp fluctuations
+            binCenters - list of the bincenters along each (x,y,z) axis
+            [xv, yv, zv] - indexes in the nehp matrix where the values are non zero
+        """
 
         # Create the bins for the histogramming of energy events
         binnames = ["X", "Y", "Z"]
@@ -343,88 +322,43 @@ class gEvent(object):
             val[xv, yv, zv],
         )
 
-    def computeTrackVectors(self):
-        """
-        Computes a set of vectors that describe the track orientation. Returns the delta r and r_i of each step to fully reconstruct the track
-        """
+    def createCarriersTrack(
+        self, useColumnarRecomb, wehpFunction=None, efield=None, **settings
+    ):
 
-        deltaVector = []
-        rVector = []
-        prevTrackID = 0
-        prevPosition = np.zeros(3)
-        for i in range(len(self.hits)):
-            if i == 0:
-                prevPosition = gEvent.getPosition(self.hits[i])
-                prevTrackID = self.hits[i]["trackID"]
-                continue
-
-            if self.hits[i]["trackID"] != prevTrackID:
-
-                # Find the hit of the parent that created this
-                potentialParentHits = [
-                    it for it in self.hits if it["trackID"] == self.hits[i]["parentID"]
-                ]
-                parentHit = [
-                    it
-                    for it in potentialParentHits
-                    if it["secondaryTrackID"] == self.hits[i]["trackID"]
-                ]
-                # If we can find the parent, use as the previous position, otherwise, minimize distance for estimation
-                if parentHit:
-                    prevPosition = gEvent.getPosition(parentHit[0])
-                else:
-                    # Look for nearest postition
-                    if potentialParentHits:
-                        parentIdx = gEvent.findMinDistance(
-                            self.hits[i], potentialParentHits
-                        )
-                        prevPosition = gEvent.getPosition(
-                            potentialParentHits[parentIdx]
-                        )
-                    else:
-                        parentIdx = gEvent.findMinDistance(
-                            self.hits[i],
-                            [
-                                it
-                                for it in self.hits
-                                if it["trackID"] != self.hits[i]["trackID"]
-                            ],
-                        )
-                        prevPosition = gEvent.getPosition(self.hits[parentIdx])
-
-            deltaVector.append(gEvent.getPosition(self.hits[i]) - prevPosition)
-            rVector.append(prevPosition)
-
-            prevPosition = gEvent.getPosition(self.hits[i])
-            prevTrackID = self.hits[i]["trackID"]
-
-        return np.array(deltaVector), np.array(rVector)
-
-    @staticmethod
-    def getPosition(hit):
-        """ 
-        Gets the position vector from an individual hit
-        """
-        posStr = ["x", "y", "z"]
-        return np.array([hit[i] for i in posStr])
-
-    @staticmethod
-    def findMinDistance(hit, potentialHits):
-        """
-        Finds the hit with the minimum distance from the current hit in the list of potentialHits
-        """
-        minIndex = 0
-        minDistance = np.inf
-
-        for i, phit in enumerate(potentialHits):
-            distance = np.sqrt(
-                np.sum((gEvent.getPosition(hit) - gEvent.getPosition(phit)) ** 2)
+        # Compute the work function with the specified technique (columnar or functional)
+        if settings["COLUMNAR_RECOMBINATION"]:
+            wehp, _ = CarrierSimulation.columnarRecombinationWorkFunction(
+                self, efield, **settings
             )
-            if distance < minDistance and distance > 0:
-                minDistance = distance
-                minIndex = i
+        else:
+            wehp = 0.05 * np.ones(len(self.energy))
 
-        return minIndex
+            # If have efield and wehp function compute the functional form
+            if wehpFunction and efield:
+                if settings["THREE_DIMENSIONS"]:
+                    Exyz = interpEField3D(self.x, self.y, self.z, efield)
+                    EMag = np.sqrt(np.sum(Exyz ** 2, axis=1))
+                else:
+                    Eyz = interpEField2D(self.y, self.z, efield)
+                    EMag = np.sqrt(np.sum(Eyz ** 2, axis=1))
+
+                for i in range(len(self.energy)):
+                    wehpFunction.symbol_table.variables["E"] = EMag[i]
+                    wehp[i] = wehpFunction()
+
+        # Convert energy to charge using wehp. Include statistical fluctuations
+        nehp = self.energy / wehp
+
+        # Apply fluctuations
+        if settings["CARRIER_GENERATION_POISSON"]:
+            nehpFluctuation = np.random.poisson(nehp)
+        else:
+            nehpFluctuation = np.round(nehp)
+
+        nehp = np.round(nehp)
+
+        return (nehp, nehpFluctuation, self.x, self.y, self.z, wehp, self.energy)
 
 
 class gEventCollection(object):
@@ -581,10 +515,10 @@ class CarrierSimulation(object):
 
     def newEmFile(self, emfilename):
         """
-		Replace the em data with what is in the new file
-		Inputs:
-			emfilename - string of the path to the comsol simulation file
-		"""
+        Replace the em data with what is in the new file
+        Inputs:
+            emfilename - string of the path to the comsol simulation file
+        """
         if self.use3D:
             _, pos, self.data = readComsolFileGrid3d(emfilename)
             self.x, self.y, self.z = pos[0], pos[1], pos[2]
@@ -595,10 +529,10 @@ class CarrierSimulation(object):
 
     def newEventCollection(self, eventCollection):
         """
-		Replaces the current event collection with the new eventCollection
-		Inputs:
-			eventCollection - either a string to the file location or an gEventCollection ojbect
-		"""
+        Replaces the current event collection with the new eventCollection
+        Inputs:
+            eventCollection - either a string to the file location or an gEventCollection ojbect
+        """
         if type(eventCollection) is str:
             self.eventCollection = gEventCollection(eventCollection)
         else:
@@ -627,8 +561,8 @@ class CarrierSimulation(object):
 
     def computeScaleFactor(self, depth=[0.5, 1], width=[0.35, 0.65]):
         """
-		Computes the scale factor between weighted potentials for tiered coplanar design. Save it as an attribute of the class so it only needs to be done once
-		"""
+        Computes the scale factor between weighted potentials for tiered coplanar design. Save it as an attribute of the class so it only needs to be done once
+        """
 
         # Get dimensions and sets the limits that we want to take
         xdim = self.x.size
@@ -649,8 +583,8 @@ class CarrierSimulation(object):
 
     def createFields(self):
         """
-		Takes the raw comsol data and parses it into the form used by findmotion and inducedCharge
-		"""
+        Takes the raw comsol data and parses it into the form used by findmotion and inducedCharge
+        """
 
         # Gets the EM information
         x, y, z, data = self.x, self.y, self.z, self.data
@@ -711,8 +645,8 @@ class CarrierSimulation(object):
 
     def chargeArray(self, nehp, nHoleSteps, nElectronSteps):
         """
-		Generates the charge arrays used in the induced charge calculations
-		"""
+        Generates the charge arrays used in the induced charge calculations
+        """
 
         # Get data from the settings
         tauHole = self.settings["TAU_HOLES"]
@@ -747,7 +681,8 @@ class CarrierSimulation(object):
 
         return qHoleArray, qElectronArray
 
-    def applyColumnarRecombination(self, event, energy):
+    @staticmethod
+    def columnarRecombinationWorkFunction(event, Efield, **settings):
         """
         Computes the charge yield after applying a columnar recombination model on the data following Ausman and Mclean. https://doi.org/10.1063/1.88104
 
@@ -759,46 +694,48 @@ class CarrierSimulation(object):
         """
 
         # Get parameters from the settings file
-        b = self.settings["TRACK_RADIUS"]
-        N0 = self.settings["LINEAR_IONIZATION_DENSITY"]
-        w0 = self.settings["SATURATION_WF"]
-
-        # Compute saturation charge (max number of charge carriers created at infinite field)
-        q0 = energy / w0
+        b = settings["TRACK_RADIUS"]
+        N0 = settings["LINEAR_IONIZATION_DENSITY"]
+        w0 = settings["SATURATION_WF"]
 
         # Compute diffusion and and recombination coefficients
-        mu = self.settings["MU_HOLES"] + self.settings["MU_ELECTRONS"]
-        kb = 1.38e-17  # in mm^2 kg s^-2 K^-1
+        voltConvCoeff = 1.0e-6  # Conversion to convert volts from SI to mm and us
+        mu = settings["MU_HOLES"] + settings["MU_ELECTRONS"]
+        kb = 1.38e-29  # in mm^2 kg s^-2 K^-1
         T = 293
-        q = self.settings["ELEMENTARY_CHARGE"]
+        q = settings["ELEMENTARY_CHARGE"]
         D = mu * kb * T / q
 
-        eps0 = 8.85e-15
+        eps0 = 8.85e-15 / voltConvCoeff  # in C V^-1 mm^-1
         epsr = 6
         alpha = (q * mu) / (eps0 * epsr)
 
         # Calculate each step of the track
-        drTrack, _ = event.computeTrackVectors()
+        pos = ["x", "y", "z"]
+        drTrack = np.array(
+            [
+                np.array(getattr(event, p)) - np.array(getattr(event, p + "i"))
+                for p in pos
+            ]
+        ).T
 
         # Find the mean E-field over the extent of the track
-        fevent = event.flattenEvent()
-        pos = ["x", "y", "z"]
         rAve = [
-            np.sum(np.array(fevent[i]) * np.array(fevent["energy"]))
-            / np.sum(fevent["energy"])
+            np.sum(np.array(getattr(event, i)) * np.array(event.energy))
+            / np.sum(event.energy)
             for i in pos
         ]
 
-        if self.settings["THREE_DIMENSIONS"]:
-            efieldAve = interpEField3D(rAve[0], rAve[1], rAve[2], self.Etot)
+        if settings["THREE_DIMENSIONS"]:
+            efieldAve = interpEField3D(rAve[0], rAve[1], rAve[2], Efield)
             dotProduct = np.dot(drTrack, np.squeeze(efieldAve))
             drTrackMag = np.sqrt(np.sum(drTrack ** 2, axis=1))
         else:
-            efieldAve = interpEField2D(rAve[1], rAve[2], self.Etot)
+            efieldAve = interpEField2D(rAve[1], rAve[2], Efield)
             dotProduct = np.dot(drTrack[:, 1:], np.squeeze(efieldAve))
             drTrackMag = np.sqrt(np.sum(drTrack[:, 1:] ** 2, axis=1))
 
-        meanSinThetaSquare = np.mean(
+        sinThetaSquare = (
             np.sin(
                 np.arccos(dotProduct / (drTrackMag * np.sqrt(np.sum(efieldAve ** 2))))
             )
@@ -808,54 +745,58 @@ class CarrierSimulation(object):
         # Compute x, defined in paper
         x = (
             mu ** 2
-            * meanSinThetaSquare
+            * sinThetaSquare
             * b ** 2
-            * np.sum(efieldAve ** 2)
+            * np.sum(
+                (efieldAve * voltConvCoeff) ** 2
+            )  # Convert E field units to be in mm and us
             / (4 * D ** 2)
         )
-        q = q0 / (
+
+        wehp = w0 * (
             1 + (alpha * N0 / (4 * np.pi * D)) * np.exp(x) * scipy.special.kn(0, x)
         )
 
-        return q.astype("int"), meanSinThetaSquare
+        return wehp, sinThetaSquare
 
     def computeChargeSignal(self, eventIdx):
         """
-		Uses the number of electron hole pairs spatial distribution from the event and the electrostatic simulation from COMSOL to determine the induced charge signal on the detector plates
+        Uses the number of electron hole pairs spatial distribution from the event and the electrostatic simulation from COMSOL to determine the induced charge signal on the detector plates
 
-		Inputs:
-			event - filled gEvent object
-			emFilename - string to the path containing the comsol electromagnetic data for the detector geometry
-			**kwargs - a variety of keyword arguments that govern simulation settings. See the config.txt for more information about what each one does
-		Outputs:
-			time - Nx1 numpy array where N is the number of time steps for the last charge to reach the electrodes
-			qInduced - Nx1 numpy array of the induced charge signal at the electrodes. For single electrode outputs just induced charge, for coplanar design (id 'CHARGE_DIFFERENCE' == True) outputs the difference in induced charge
+        Inputs:
+            event - filled gEvent object
+            emFilename - string to the path containing the comsol electromagnetic data for the detector geometry
+            **kwargs - a variety of keyword arguments that govern simulation settings. See the config.txt for more information about what each one does
+        Outputs:
+            time - Nx1 numpy array where N is the number of time steps for the last charge to reach the electrodes
+            qInduced - Nx1 numpy array of the induced charge signal at the electrodes. For single electrode outputs just induced charge, for coplanar design (id 'CHARGE_DIFFERENCE' == True) outputs the difference in induced charge
 
-		"""
+        """
 
         # Creates a simulated pulse object to store information
         simPulseObj = pout.SimulatedPulse(**self.settings)
 
         # Gets the carrier information
-
         event = self.eventCollection.collection[eventIdx]
-        nehp, nehpNoise, bins, xv, yv, zv, wehp, binnedEnergy = event.createCarriers(
-            self.wehpExpression, self.Etot, **self.settings
-        )
-        nehpf = nehpNoise  # mean nehp plus the model dependent noise
-        nehpf = nehpf.astype(int)
-
-        # Compute recombination model
-        if self.settings["COLUMNAR_RECOMBINATION"]:
-            nehp, meanSinThetaSquare = self.applyColumnarRecombination(
-                event, nehp * wehp
+        # Build charge carriers using the binning technique
+        if self.settings["CARRIER_SCHEMA"] == "bin":
+            nehp, nehpf, bins, xv, yv, zv, wehp, energy = event.createCarriersBin(
+                self.wehpExpression, self.Etot, **self.settings
             )
-            nehpf, _ = self.applyColumnarRecombination(event, nehpf * wehp)
-            simPulseObj.setSinThetaSquare(meanSinThetaSquare)
+            xpos, ypos, zpos = bins[0][xv], bins[1][yv], bins[2][zv]
+        # Build charge carriers using the track segment technique
+        elif self.settings["CARRIER_SCHEMA"] == "track":
+            useColumnarRecomb = self.settings
+            nehp, nehpf, xarr, yarr, zarr, wehp, energy = event.createCarriersTrack(
+                useColumnarRecomb, self.wehpExpression, self.Etot, **self.settings
+            )
+            xpos, ypos, zpos = np.array(xarr), np.array(yarr), np.array(zarr)
+        else:
+            return 0
 
         simPulseObj.setG4Event(event)
-        simPulseObj.setBinnedPosition(bins[0][xv], bins[1][yv], bins[2][zv])
-        simPulseObj.setBinnedEnergy(binnedEnergy)
+        simPulseObj.setBinnedPosition(xpos, ypos, zpos)
+        simPulseObj.setBinnedEnergy(energy)
         simPulseObj.setNehp(nehp, nehpf)
         simPulseObj.setWehp(wehp)
         simPulseObj.setScaleFactor(self.scale)
@@ -898,7 +839,7 @@ class CarrierSimulation(object):
         elecBInduced = []
 
         # Find the number of points in the nehp array that are nonzero. Iterate over those
-        for i in range(xv.size):
+        for i in range(xpos.size):
 
             # Find trajectory of this group of particles
             # Assign the sign of the charge of holes and electrons
@@ -908,7 +849,7 @@ class CarrierSimulation(object):
             # Find path of the electrons and holes given the location by (xi), yi, zi
             if self.use3D:
                 pathHoles = findMotion(
-                    (bins[0][xv[i]], bins[1][yv[i]], bins[2][zv[i]]),
+                    (xpos[i], ypos[i], zpos[i]),
                     self.Etot,
                     muHole,
                     dtHole,
@@ -917,7 +858,7 @@ class CarrierSimulation(object):
                     limits=limits,
                 )
                 pathElectrons = findMotion(
-                    (bins[0][xv[i]], bins[1][yv[i]], bins[2][zv[i]]),
+                    (xpos[i], ypos[i], zpos[i]),
                     self.Etot,
                     muElectron,
                     dtElectron,
@@ -927,7 +868,7 @@ class CarrierSimulation(object):
                 )
             else:
                 pathHoles = findMotion(
-                    (bins[1][yv[i]], bins[2][zv[i]]),
+                    (ypos[i], zpos[i]),
                     self.Etot,
                     muHole,
                     dtHole,
@@ -936,7 +877,7 @@ class CarrierSimulation(object):
                     limits=limits,
                 )
                 pathElectrons = findMotion(
-                    (bins[1][yv[i]], bins[2][zv[i]]),
+                    (ypos[i], zpos[i]),
                     self.Etot,
                     muElectron,
                     dtElectron,
@@ -1070,16 +1011,16 @@ class CarrierSimulation(object):
 
     def processMultipleEvents(self, eventIdxs, processes=1, chunksize=8):
         """
-		Tool for computing multiple Geant for events with one function call. Hass option for parallel computing as well
+        Tool for computing multiple Geant for events with one function call. Hass option for parallel computing as well
 
-		Inputs:
-			eventIdxs - a list of event IDs to iterate over
-			processes - number of processors to uses. Only relevant when PARALLEL_PROCESS setting is true
-			chunksize - number of chunks to break the eventIdx into and send to each worker at a time.
+        Inputs:
+            eventIdxs - a list of event IDs to iterate over
+            processes - number of processors to uses. Only relevant when PARALLEL_PROCESS setting is true
+            chunksize - number of chunks to break the eventIdx into and send to each worker at a time.
 
-		Outputs:
-			simOutputObj - simulation output object
-		"""
+        Outputs:
+            simOutputObj - simulation output object
+        """
 
         simOutputObj = pout.SimulatedOutputFile(settings=self.settings)
         if self.settings["PARALLEL_PROCESS"]:
@@ -1114,32 +1055,32 @@ class CarrierSimulation(object):
 
 def worker(args):
     """
-	Defines a worker function for parallel processing since the Pool.map() function takes only one argument. args is a tuple of different parameters that are needed to run the simulation
-	"""
+    Defines a worker function for parallel processing since the Pool.map() function takes only one argument. args is a tuple of different parameters that are needed to run the simulation
+    """
     obj, indx = args
     return obj.computeChargeSignal(indx)
 
 
 def computeDarkCurrentNoise(E, binx, biny, rho, dt):
     """
-	Calculates the dark current through a specific area of the detector (deliminated by the binx, biny range), converts that dark current to number of charge particles (probabalistically) and finds the induced charge from them at a time step
-	"""
+    Calculates the dark current through a specific area of the detector (deliminated by the binx, biny range), converts that dark current to number of charge particles (probabalistically) and finds the induced charge from them at a time step
+    """
     return None
 
 
 def scaleWeightPhi(wPhiA, wPhiB, dimSize, depth=0.5, xrange=[0.35, 0.65]):
     """
-	Finds the scaling factor between weighted potential required to make the the different in induced charge 0 in the bulk
+    Finds the scaling factor between weighted potential required to make the the different in induced charge 0 in the bulk
 
-	Inputs:
-		wPhiA - NxM np array of the weighted potential of electrode A (collection)
-		wPhiB - NxM array of weighted potential for B
-		dimSize = array of [nXelements, nYelements]
-		depth - what fraction of the weighted potential to look at. Must be small enough to avoid non-linearities of weighted potential near coplanar electrode
-		xrange - fraction of x values to take. Typically the edges of detector have distortions from linear potential, therefore we want to exclude
-	Outpus:
-		scaleFactor - float factor between the linear components of the weighted potential
-	"""
+    Inputs:
+        wPhiA - NxM np array of the weighted potential of electrode A (collection)
+        wPhiB - NxM array of weighted potential for B
+        dimSize = array of [nXelements, nYelements]
+        depth - what fraction of the weighted potential to look at. Must be small enough to avoid non-linearities of weighted potential near coplanar electrode
+        xrange - fraction of x values to take. Typically the edges of detector have distortions from linear potential, therefore we want to exclude
+    Outpus:
+        scaleFactor - float factor between the linear components of the weighted potential
+    """
 
     # Reshape weighted potential into nx x ny array
     wPhiA = np.reshape(wPhiA, (dimSize[1], dimSize[0]))
@@ -1157,8 +1098,8 @@ def scaleWeightPhi(wPhiA, wPhiB, dimSize, depth=0.5, xrange=[0.35, 0.65]):
 
 def readFreqResponse(freqResponseFile):
     """
-	Reads the LTSpice frequency response. Outputs frequency and gain in dB
-	"""
+    Reads the LTSpice frequency response. Outputs frequency and gain in dB
+    """
     f = open(freqResponseFile)
 
     fcircuit = []
@@ -1185,12 +1126,12 @@ def readFreqResponse(freqResponseFile):
 
 def filterSignal(signal, time, freqResponseFile):
     """
-	Filters the signal given the frequency response of the circuit provided in a .txt file
-	Inputs:
-		signal - Nx1 dimensional numpy array containing the time domain singal
-		time - Nx1 dimensional numpy array of time associated with the signale
-		freqResponseFile - spice frequency response file name for the amplification circuit
-	"""
+    Filters the signal given the frequency response of the circuit provided in a .txt file
+    Inputs:
+        signal - Nx1 dimensional numpy array containing the time domain singal
+        time - Nx1 dimensional numpy array of time associated with the signale
+        freqResponseFile - spice frequency response file name for the amplification circuit
+    """
 
     fcircuit, gain = readFreqResponse(freqResponseFile)
 
@@ -1244,9 +1185,9 @@ if __name__ == "__main__":
     # indx = [125, 129, 130, 131, 132]
     # results = simObject.processMultipleEvents(indx, processes=1)
     # for i in indx:
-    # 	print(i)
-    # 	t, q = simObject.computeChargeSignal(i)
-    # 	ax.plot(t, -q/1.6e-19*0.05, linewidth=3, label='%i'%i)
+    #   print(i)
+    #   t, q = simObject.computeChargeSignal(i)
+    #   ax.plot(t, -q/1.6e-19*0.05, linewidth=3, label='%i'%i)
     # ax.set_xlabel('Time ($\mu) s$', fontsize=14)
     # ax.set_ylabel('Charge (keV)', fontsize=14)
     # ax.legend()
