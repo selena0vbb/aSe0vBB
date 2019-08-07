@@ -51,6 +51,7 @@ G4bool SeleniumSD::ProcessHits(G4Step* step, G4TouchableHistory* history)
 	hit->SetParentID(step->GetTrack()->GetParentID());
 	hit->SetEdep(edep);
 	hit->SetPosition(step->GetPostStepPoint()->GetPosition());
+	hit->SetInitialPosition(step->GetPreStepPoint()->GetPosition());
 	hit->SetParticleDefinition(step->GetTrack()->GetDefinition());
 
 	// Try to get the creator process

@@ -48,6 +48,9 @@ SeleniumRunAction::SeleniumRunAction(G4String name) : G4UserRunAction()
 		analysisManager->CreateNtupleDColumn("x");
 		analysisManager->CreateNtupleDColumn("y");
 		analysisManager->CreateNtupleDColumn("z");
+		analysisManager->CreateNtupleDColumn("xi");
+		analysisManager->CreateNtupleDColumn("yi");
+		analysisManager->CreateNtupleDColumn("zi");
 		analysisManager->CreateNtupleDColumn("energy");
 		analysisManager->CreateNtupleSColumn("ParticleType");
 		analysisManager->CreateNtupleSColumn("ProcessName");
