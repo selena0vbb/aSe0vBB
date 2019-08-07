@@ -193,17 +193,16 @@ class SimulatedPulse(object):
     # Computing characteristics of the pulse
     def computeStats(self):
         """ Compute a set of statistics about the event """
-        g4Data = self.g4Event.flattenEvent()
         self.meanPosition = self.computeMeanPosition(
-            g4Data["x"], g4Data["y"], g4Data["z"]
+            self.g4Event.x, self.g4Event.y, self.g4Event.z
         )
         self.meanWeightedPosition = self.computeMeanWeightedPosition(
-            g4Data["x"], g4Data["y"], g4Data["z"], g4Data["energy"]
+            self.g4Event.x, self.g4Event.y, self.g4Event.z
         )
         self.sigmaPosition = self.computeSigmaPosition(
-            g4Data["x"], g4Data["y"], g4Data["z"]
+            self.g4Event.x, self.g4Event.y, self.g4Event.z
         )
-        self.totalEnergy = self.computeTotalEnergy(g4Data["energy"])
+        self.totalEnergy = self.computeTotalEnergy(self.g4Event.energy)
 
     @staticmethod
     def computeMeanPosition(x, y, z):

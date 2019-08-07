@@ -91,13 +91,12 @@ def noise_histogram():
     charge20usTrapping = []
     allfig = []
     allax = []
-    flatData = event.flattenEvent()
 
     for i in range(N):
 
         print (i)
 
-        energy.append(sum(flatData["energy"]))
+        energy.append(sum(event.energy))
 
         # nehp, nehpFluctuations, _, _ = event.createCarriers(**settings)
         # totalCharge = np.sum((nehp + nehpFluctuations) * wehp)
@@ -243,11 +242,10 @@ def noise_histogram_parallel():
         simObj.newEventCollection(newEventCollection)
         for i in range(len(newEventCollection.collection)):
             event = newEventCollection.collection[i]
-            flat = event.flattenEvent()
-            zmin = min(flat["z"])
-            ymin = np.min(np.abs(flat["y"]))
-            xmin = np.min(np.abs(flat["x"]))
-            eevent = np.sum(flat["energy"])
+            zmin = min(event.z)
+            ymin = np.min(np.abs(event.y))
+            xmin = np.min(np.abs(event.x))
+            eevent = np.sum(event.energy)
 
             # if xmin < 1.9 and ymin < 1.9 and zmin > -0.1:
             if (
@@ -316,13 +314,12 @@ def noise_histogram_multiple_events():
         settings["SCALE_WEIGHTED_PHI"] = scaleWeight[j]
 
         for i, event in enumerate(eventCollection.collection):
-            flatData = event.flattenEvent()
-            etot = sum(flatData["energy"])
-            zmin = min(flatData["z"])
+            etot = sum(event.energy)
+            zmin = min(event.z)
 
             # if energy is 122 kev, we do the analysis
             if round(etot) == 122:
-                if np.max(np.abs(flatData["y"])) < 0.5 and zmin > -0.05:
+                if np.max(np.abs(event.y)) < 0.5 and zmin > -0.05:
                     # No trapping
                     settings["CARRIER_LIFETIME_GEOMETRIC"] = 0
                     # t, qNo = pd.computeChargeSignal(event, emfilename[j], **settings)

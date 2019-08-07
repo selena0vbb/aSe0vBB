@@ -36,16 +36,46 @@ import ROOT as rt
 
 
 class gEvent(object):
-    """docstring for gEvent"""
+    """
+    gEvent is an object to handle G4 Events. It takes the information from a sensitive detector
+    and stores it as a series of arrays
+    """
 
-    def __init__(self, gEventID=-1, hits=[], geometry=None):
+    def __init__(self, gEventID=-1, hits=None, geometry=None):
         """ Initializes the event class
-		Inputs:
-			gEventID - int geant4 event ID number
-			hits - list of hits. Each hit is a dictionairy containing the information provided by geant4 for hits (position, energy, track and parent ID, particle type, creator process name)
-		"""
+        Inputs:
+            gEventID - int geant4 event ID number
+            hits - list of hits. Each hit is a dictionairy containing the information provided by geant4 for hits (position, energy, track and parent ID, particle type, creator process name)
+        """
+        # Initialize variables
         self.gEventID = gEventID
-        self.hits = hits
+        if hits:
+            self.trackID = hits["trackID"]
+            self.parentID = hits["parentID"]
+            self.x = hits["x"]
+            self.y = hits["y"]
+            self.z = hits["z"]
+            self.xi = hits["xi"]
+            self.yi = hits["yi"]
+            self.zi = hits["zi"]
+            self.energy = hits["energy"]
+            self.particle = hits["particle"]
+            self.creatorProcess = hits["creatorProcess"]
+            self.secondaryTrackID = hits["secondaryTrackID"]
+        else:
+            self.trackID = []
+            self.parentID = []
+            self.x = []
+            self.y = []
+            self.z = []
+            self.xi = []
+            self.yi = []
+            self.zi = []
+            self.energy = []
+            self.particle = []
+            self.creatorProcess = []
+            self.secondaryTrackID = []
+
         if geometry:
             self.geomtry = geometry
         else:
@@ -54,40 +84,36 @@ class gEvent(object):
     def __str__(self):
         return "Geant4 Event. Event ID: %i, Total Energy: %.1f" % (
             self.gEventID,
-            np.sum(self.flattenEvent()["energy"]),
+            np.sum(self.energy),
         )
-
-    # Define Setters
-    def SetEventID(self, eventID):
-        """ Sets the geant4 event ID """
-        self.gEventID = eventID
-
-    def SetHits(self, hits):
-        """ Sets the list of hits """
-        self.hits = hits
-
-    # Define Getters
-    def GetEventID(self):
-        """ Returns the event ID """
-        return self.gEventID
-
-    def GetHits(self):
-        """ Returns the list of hits """
-        return self.hits
 
     def GetSpecificHit(self, index):
         """ Tries to return a single dictionairy hit at index """
         try:
-            return self.hits[index]
+            hit = {}
+            hit["trackID"] = self.trackID[index]
+            hit["parentID"] = self.parentID[index]
+            hit["x"] = self.x[index]
+            hit["y"] = self.y[index]
+            hit["z"] = self.z[index]
+            hit["xi"] = self.xi[index]
+            hit["yi"] = self.yi[index]
+            hit["zi"] = self.zi[index]
+            hit["energy"] = self.energy[index]
+            hit["particle"] = self.particle[index]
+            hit["creatorProcess"] = self.creatorProcess[index]
+            hit["secondaryTrackID"] = self.secondaryTrackID[index]
+            return self.hit
+
         except Exception as e:
             raise e
 
     # Member functions
     def AddHit(self, hit):
         """ Adds a hit to the collection of hits. Function checks to make sure all entries are present and data types are correct
-		Input:
-			hit - dictionairy containing hit data
-		"""
+        Input:
+            hit - dictionairy containing hit data
+        """
 
         # Check to make sure all types of data in hit are what is expected
         try:
@@ -159,9 +185,8 @@ class gEvent(object):
             fig = figH[0]
             ax = figH[1]
 
-        flatData = self.flattenEvent()
-        histX = flatData[x]
-        histY = flatData[y]
+        histX = getattr(self, x)
+        histY = getattr(self, y)
 
         val, bins, _ = ax.hist(
             histX,
@@ -185,10 +210,9 @@ class gEvent(object):
         self, x="y", y="z", z="energy", nbins=[200, 200], figH=None, delete=False
     ):
 
-        flatData = self.flattenEvent()
-        histX = flatData[x]
-        histY = flatData[y]
-        histZ = flatData[z]
+        histX = getattr(self, x)
+        histY = getattr(self, y)
+        histZ = getattr(self, z)
 
         # setting up the range
         histRange = [self.geometry[x], self.geometry[y]]
@@ -225,13 +249,12 @@ class gEvent(object):
 
     def plotHN(self, varname=("x", "y", "z"), fname="energy", testbins=[200, 200, 200]):
         """
-		Bins a function into N different axis. By default, this function bins energy into x,y,z axis
-		"""
+        Bins a function into N different axis. By default, this function bins energy into x,y,z axis
+        """
 
         # Extract the variables and function from the flatten event data
-        flatData = self.flattenEvent()
-        var = [flatData[v] for v in varname]
-        func = flatData[fname]
+        var = [getattr(self, v) for v in varname]
+        func = getattr(self, fname)
 
         # Convert the list of variables into a NxD array (N number of entries, D dimensions)
         var = np.array(var).T
@@ -405,7 +428,7 @@ class gEvent(object):
 
 
 class gEventCollection(object):
-    """docstring for gEventCollection"""
+    """Container for reading, parsing and storing many Geant4 events"""
 
     def __init__(self, rootFilename=None, eventCounterRange=None, **kwargs):
 
@@ -419,7 +442,6 @@ class gEventCollection(object):
             tree = f.Get("aSeData")
             eventID = -1
             eventCounter = 0
-            hitsList = []
 
             # Iterate over all of the entries in the tree, extracting tuple i
             for entry in tree:
@@ -428,57 +450,62 @@ class gEventCollection(object):
                         if eventCounterRange != None:
                             if eventCounter >= eventCounterRange[0]:
                                 self.collection.append(
-                                    gEvent(gEventID=eventID, hits=hitsList)
+                                    gEvent(gEventID=eventID, hits=hitsInfo)
                                 )
                         else:
                             self.collection.append(
-                                gEvent(gEventID=eventID, hits=hitsList)
+                                gEvent(gEventID=eventID, hits=hitsInfo)
                             )
                         eventCounter += 1
-                    hitsList = []
+
+                    hitsInfo = {}
                     eventID = entry.EventID
-                    hit = {
-                        "trackID": entry.TrackID,
-                        "parentID": entry.ParentID,
-                        "x": entry.x,
-                        "y": entry.y,
-                        "z": entry.z,
-                        "energy": entry.energy * 1e3,
-                        "particle": entry.ParticleType,
-                        "creatorProcess": entry.ProcessName,
-                    }
+                    hitsInfo["trackID"] = [entry.TrackID]
+                    hitsInfo["parentID"] = [entry.ParentID]
+                    hitsInfo["x"] = [entry.x]
+                    hitsInfo["y"] = [entry.y]
+                    hitsInfo["z"] = [entry.z]
+                    hitsInfo["energy"] = [entry.energy * 1e3]
+                    hitsInfo["particle"] = [entry.ParticleType]
+                    hitsInfo["creatorProcess"] = [entry.ProcessName]
 
                     # Add additional parameters to the hit. For backwords compatibility
                     try:
-                        hit["secondaryTrackID"] = entry.SecondaryTrackID
+                        hitsInfo["secondaryTrackID"] = [entry.SecondaryTrackID]
+                        hitsInfo["xi"] = [entry.xi]
+                        hitsInfo["yi"] = [entry.yi]
+                        hitsInfo["zi"] = [entry.zi]
                     except AttributeError:
-                        hit["secondaryTrackID"] = -1  # Default value. No information
+                        hitsInfo["secondaryTrackID"] = [-1]
+                        hitsInfo["xi"] = [0]
+                        hitsInfo["yi"] = [0]
+                        hitsInfo["zi"] = [0]  # Default values. No information
                     except:
                         pass
-
-                    hitsList.append(hit)
 
                 else:
-                    hit = {
-                        "trackID": entry.TrackID,
-                        "parentID": entry.ParentID,
-                        "x": entry.x,
-                        "y": entry.y,
-                        "z": entry.z,
-                        "energy": entry.energy * 1e3,
-                        "particle": entry.ParticleType,
-                        "creatorProcess": entry.ProcessName,
-                    }
+                    hitsInfo["trackID"].append(entry.TrackID)
+                    hitsInfo["parentID"].append(entry.ParentID)
+                    hitsInfo["x"].append(entry.x)
+                    hitsInfo["y"].append(entry.y)
+                    hitsInfo["z"].append(entry.z)
+                    hitsInfo["energy"].append(entry.energy * 1e3)
+                    hitsInfo["particle"].append(entry.ParticleType)
+                    hitsInfo["creatorProcess"].append(entry.ProcessName)
 
                     # Add additional parameters to the hit. For backwords compatibility
                     try:
-                        hit["secondaryTrackID"] = entry.SecondaryTrackID
+                        hitsInfo["secondaryTrackID"].append(entry.SecondaryTrackID)
+                        hitsInfo["xi"].append(entry.xi)
+                        hitsInfo["yi"].append(entry.yi)
+                        hitsInfo["zi"].append(entry.zi)
                     except AttributeError:
-                        hit["secondaryTrackID"] = -1  # Default value. No information
+                        hitsInfo["secondaryTrackID"].append(-1)
+                        hitsInfo["xi"].append(0)
+                        hitsInfo["yi"].append(0)
+                        hitsInfo["zi"].append(0)  # Default values. No information
                     except:
                         pass
-
-                    hitsList.append(hit)
 
                 if eventCounterRange != None and eventCounter >= eventCounterRange[1]:
                     break
@@ -500,13 +527,11 @@ class gEventCollection(object):
         foundEvent = None
 
         for event in self.collection:
-            if event.GetEventID() == eventID:
-                foundEvent = event
+            if event.gEventID == eventID:
+                return event
 
         if not foundEvent:
             print ("Could not find a event matching the ID %i" % eventID)
-
-        return foundEvent
 
 
 class CarrierSimulation(object):
@@ -514,8 +539,8 @@ class CarrierSimulation(object):
 
     def __init__(self, emfilename=None, eventCollection=None, configfile=None):
         """
-		Initialize the class
-		"""
+        Initialize the class
+        """
         self.emfilname = emfilename
         self.configfile = configfile
 

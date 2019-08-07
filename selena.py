@@ -57,11 +57,10 @@ def main(argv):
         simObj.newEventCollection(newEventCollection)
         for i in range(len(newEventCollection.collection)):
             event = newEventCollection.collection[i]
-            flat = event.flattenEvent()
-            zr = np.max(np.abs(flat["z"]))
-            yr = np.max(np.abs(flat["y"]))
-            xr = np.max(np.abs(flat["x"]))
-            eevent = np.sum(flat["energy"])
+            zr = np.max(np.abs(event.z))
+            yr = np.max(np.abs(event.y))
+            xr = np.max(np.abs(event.x))
+            eevent = np.sum(event.energy)
 
             if (
                 xr < settings["X_MAX"]
@@ -73,6 +72,10 @@ def main(argv):
         simOutput = simObj.processMultipleEvents(
             indx, processes=int(settings["NPROCESSORS"])
         )
+        # simOutput = simObj.processMultipleEvents(
+        #     [indx[50]], processes=int(settings["NPROCESSORS"])
+        # )
+
         simOutput.setGitInfo(settings["GIT_DIR"])
         simObj.outputfile = outfilename % j
         simObj.outputdir = outdir
