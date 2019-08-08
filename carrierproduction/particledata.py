@@ -19,8 +19,11 @@ import processedPulse as pout
 import scipy.special
 
 # add the EM plot module to the path and import it
-sys.path.append("/home/apiers/aSe0vBB/EM Analysis")
-sys.path.append("/home/apiers/mnt/rocks/aSe0vBB/EM Analysis")
+# sys.path.append("/home/apiers/aSe0vBB/EM Analysis")
+# sys.path.append("/home/apiers/mnt/rocks/aSe0vBB/EM Analysis")
+sys.path.append(os.path.join(os.path.dirname(sys.path[0]), "EM Analysis"))
+sys.path.append(os.path.join(sys.path[0], "EM Analysis"))
+
 from plot import (
     readComsolFileGrid,
     readComsolFileGrid3d,
@@ -555,6 +558,7 @@ class CarrierSimulation(object):
             self.wehpExpression = cexprtk.Expression(
                 self.settings["WORK_FUNCTION"], self.symbolTable
             )
+            self.createFields()
 
         else:
             warnings.warn("No settings to apply. Returning without applying settings.")
@@ -718,6 +722,8 @@ class CarrierSimulation(object):
                 for p in pos
             ]
         ).T
+        # Calculate the length of each track segment
+        trackLength = np.sqrt( np.sum( drTrack**2, axis=1))
 
         # Find the mean E-field over the extent of the track
         rAve = [
@@ -753,6 +759,8 @@ class CarrierSimulation(object):
             / (4 * D ** 2)
         )
 
+        # N0 is the linear charge density. Assume that energy is lost linearly along the length of the track.
+        N0 = event.energy / (w0 * trackLength)
         wehp = w0 * (
             1 + (alpha * N0 / (4 * np.pi * D)) * np.exp(x) * scipy.special.kn(0, x)
         )
