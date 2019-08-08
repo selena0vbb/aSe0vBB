@@ -719,6 +719,9 @@ class CarrierSimulation(object):
             ]
         ).T
 
+        # Calculate the length of each track segment
+        trackLength = np.sqrt( np.sum( drTrack**2, axis=1))
+
         # Find the mean E-field over the extent of the track
         rAve = [
             np.sum(np.array(getattr(event, i)) * np.array(event.energy))
@@ -753,6 +756,8 @@ class CarrierSimulation(object):
             / (4 * D ** 2)
         )
 
+        # N0 is the linear charge density. Assume that energy is lost linearly along the length of the track.
+        N0 = event.energy / (w0 * trackLength)
         wehp = w0 * (
             1 + (alpha * N0 / (4 * np.pi * D)) * np.exp(x) * scipy.special.kn(0, x)
         )
