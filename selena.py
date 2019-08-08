@@ -1,5 +1,6 @@
 import sys
 import getopt
+import argparse
 import numpy as np
 
 sys.path.append("./carrierproduction")
@@ -15,24 +16,26 @@ def main(argv):
     configfile = "./carrierproduction/config.txt"
     nEvents = 0
 
-    # Process command line arguments
-    try:
-        opts, args = getopt.getopt(argv, "hc:n:")
-    except getopt.GetoptError:
-        printhelp()
-        sys.exit(2)
+    parser = argparse.ArgumentParser(description="Process command line arguments for Selena simulation")
 
-    for opt, arg in opts:
-        if opt == "-h":
-            printhelp()
-            sys.exit()
-        elif opt == "-c":
-            configfile = arg
-        elif opt == "-n":
-            nEvents = int(arg)
+    # Add arguments to the parsers
+    parser.add_argument("-c", "--configfile", nargs="?", default="./carrierproduction/config.txt")
+    parser.add_argument("-n", "--number", nargs="?", default=0, type=int)
+    parser.add_argument("-v", "--configvar")
+    parser.add_argument("configvarValue", nargs="*")
 
+
+    commandArgs = parser.parse_args()
+
+    # Assign command line variables
+    configfile = commandArgs.configfile
+    nEvents = commandArgs.number
+    print(commandArgs)
+
+    # Print simulation information
     print ("Config file is %s" % configfile)
-
+    print ("Number of events is %i" % nEvents)
+    return
     # Setup and run the simulation
     settings = sc.readConfigFile(configfile)
     particlefilename = settings["PARTICLE_FILENAME"]
@@ -43,43 +46,62 @@ def main(argv):
 
     simObj = pd.CarrierSimulation(emfilename=emfilename, configfile=configfile)
 
-    filesize = settings["NEVENTS_PER_FILE"]
-    outdir = settings["OUTPUT_DIR"]
-    outfilename = settings["OUTPUT_FILE"]
 
-    # Chunk event collection into smaller pieces if needed
-    for j in range(int(np.ceil(float(nEvents) / filesize))):
-        indx = []
-        # Create new event collect with the smaller chunck size
-        newEventCollection = pd.gEventCollection(
-            particlefilename, eventCounterRange=[j * filesize, (j + 1) * filesize - 1]
-        )
-        simObj.newEventCollection(newEventCollection)
-        for i in range(len(newEventCollection.collection)):
-            event = newEventCollection.collection[i]
-            zr = np.max(np.abs(event.z))
-            yr = np.max(np.abs(event.y))
-            xr = np.max(np.abs(event.x))
-            eevent = np.sum(event.energy)
+    # Iterate over the values passed to the config var value
+    for val in commandArgs.configvarValue:
+        print("Config variable: " + commandArgs.configvar + " = " val)
 
-            if (
-                xr < settings["X_MAX"]
-                and yr < settings["Y_MAX"]
-                and zr < settings["Z_MAX"]
-            ):
-                indx.append(i)
+        filesize = settings["NEVENTS_PER_FILE"]
+        outdir = settings["OUTPUT_DIR"]
+        outfilename = settings["OUTPUT_FILE"] + "_" + commandArgs.configvar + "_" + val
 
-        simOutput = simObj.processMultipleEvents(
-            indx, processes=int(settings["NPROCESSORS"])
-        )
-        # simOutput = simObj.processMultipleEvents(
-        #     [indx[50]], processes=int(settings["NPROCESSORS"])
-        # )
+        # Try to parse config value into double if that is the form of the command line arguments
+        try:
+            val = float(val)
+        except ValueError:
+            pass
+        except Exception as e:
+            print(str(e))
+            return
 
-        simOutput.setGitInfo(settings["GIT_DIR"])
-        simObj.outputfile = outfilename % j
-        simObj.outputdir = outdir
-        simObj.savedata(simOutput)
+        # Change the configvar in the settings and apply
+        simObj.settings[commandArgs.configvar] = val
+        simObj.settings["OUTPUT_FILE"] = outfilename
+        simObj.applySettings()
+
+        # Chunk event collection into smaller pieces if needed
+        for j in range(int(np.ceil(float(nEvents) / filesize))):
+            indx = []
+            # Create new event collect with the smaller chunck size
+            newEventCollection = pd.gEventCollection(
+                particlefilename, eventCounterRange=[j * filesize, (j + 1) * filesize - 1]
+            )
+            simObj.newEventCollection(newEventCollection)
+            for i in range(len(newEventCollection.collection)):
+                event = newEventCollection.collection[i]
+                zr = np.max(np.abs(event.z))
+                yr = np.max(np.abs(event.y))
+                xr = np.max(np.abs(event.x))
+                eevent = np.sum(event.energy)
+
+                if (
+                    xr < settings["X_MAX"]
+                    and yr < settings["Y_MAX"]
+                    and zr < settings["Z_MAX"]
+                ):
+                    indx.append(i)
+
+            simOutput = simObj.processMultipleEvents(
+                indx, processes=int(settings["NPROCESSORS"])
+            )
+            # simOutput = simObj.processMultipleEvents(
+            #     [indx[50]], processes=int(settings["NPROCESSORS"])
+            # )
+
+            simOutput.setGitInfo(settings["GIT_DIR"])
+            simObj.outputfile = outfilename % j
+            simObj.outputdir = outdir
+            simObj.savedata(simOutput)
 
     return
 
