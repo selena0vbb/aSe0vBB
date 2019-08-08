@@ -19,8 +19,8 @@ import processedPulse as pout
 import scipy.special
 
 # add the EM plot module to the path and import it
-sys.path.append("/home/apiers/aSe0vBB/EM Analysis")
-sys.path.append("/home/apiers/mnt/rocks/aSe0vBB/EM Analysis")
+sys.path.append(os.path.join(os.path.dirname(sys.path[0]), "EM Analysis"))
+sys.path.append(os.path.join(sys.path[0], "EM Analysis"))
 from plot import (
     readComsolFileGrid,
     readComsolFileGrid3d,
