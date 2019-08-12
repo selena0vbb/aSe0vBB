@@ -486,7 +486,6 @@ class CarrierSimulation(object):
         print ("Read config")
         if configfile:
             self.settings = sc.readConfigFile(configfile)
-            self.applySettings()
         else:
             self.settings = None
             warnings.warn(
@@ -508,6 +507,8 @@ class CarrierSimulation(object):
         else:
             self.x = self.y = self.z = self.data = []
 
+        self.applySettings()
+
         if self.settings["SCALE_WEIGHTED_PHI"]:
             self.computeScaleFactor()
         else:
@@ -519,13 +520,12 @@ class CarrierSimulation(object):
         Inputs:
             emfilename - string of the path to the comsol simulation file
         """
-        if self.use3D:
+        if self.settings["THREE_DIMENSIONS"]:
             _, pos, self.data = readComsolFileGrid3d(emfilename)
             self.x, self.y, self.z = pos[0], pos[1], pos[2]
         else:
             _, self.x, self.y, self.data = readComsolFileGrid(emfilename)
             self.z = np.array([])
-        self.createFields()
 
     def newEventCollection(self, eventCollection):
         """
@@ -555,6 +555,9 @@ class CarrierSimulation(object):
             self.wehpExpression = cexprtk.Expression(
                 self.settings["WORK_FUNCTION"], self.symbolTable
             )
+
+            # Create the fields with the given settings
+            self.createFields()
 
         else:
             warnings.warn("No settings to apply. Returning without applying settings.")
@@ -587,7 +590,12 @@ class CarrierSimulation(object):
         """
 
         # Gets the EM information
-        x, y, z, data = self.x, self.y, self.z, self.data
+        x, y, z, data = (
+            np.copy(self.x),
+            np.copy(self.y),
+            np.copy(self.z),
+            np.copy(self.data),
+        )
         convFactor = self.settings["UNIT_CONVERSION_FACTOR"]
         x *= convFactor
         y *= convFactor
@@ -720,7 +728,7 @@ class CarrierSimulation(object):
         ).T
 
         # Calculate the length of each track segment
-        trackLength = np.sqrt( np.sum( drTrack**2, axis=1))
+        trackLength = np.sqrt(np.sum(drTrack ** 2, axis=1))
 
         # Find the mean E-field over the extent of the track
         rAve = [
@@ -744,6 +752,7 @@ class CarrierSimulation(object):
             )
             ** 2
         )
+        # sinThetaSquare = 0.55
 
         # Compute x, defined in paper
         x = (
@@ -757,7 +766,7 @@ class CarrierSimulation(object):
         )
 
         # N0 is the linear charge density. Assume that energy is lost linearly along the length of the track.
-        N0 = event.energy / (w0 * trackLength)
+        # N0 = event.energy / (w0 * trackLength)
         wehp = w0 * (
             1 + (alpha * N0 / (4 * np.pi * D)) * np.exp(x) * scipy.special.kn(0, x)
         )
@@ -1008,7 +1017,7 @@ class CarrierSimulation(object):
 
         if self.settings["FAST"]:
             simPulseObj.setSignalMaximum(
-                np.max(np.abs(signal)) / self.settings["ELEMENTARY_CHARGE"]
+                np.max(np.abs(qInduced)) / self.settings["ELEMENTARY_CHARGE"]
             )
         else:
             simPulseObj.setTimeSeries(timeHoles, qInduced)
