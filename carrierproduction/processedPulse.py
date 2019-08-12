@@ -350,6 +350,26 @@ class SimulatedOutputFile(object):
 
         return gitInfoStr
 
+    def computeResolution(self, bins=140):
+        """
+        Computes the resolution (sigma/mean) of the main peak
+        """
+        amplitude = []
+        for pulse in self.pulses:
+            amplitude.append(pulse.signalMaximum)
+
+        # Histogram the amplitude of each pulse
+        f, bins = np.histogram(amplitude, bins=bins)
+        x = bins[1:] - np.diff(bins)[0]
+
+        # Define the fit range (only looking for the main peak)
+        fr = [2.0 / 3 * bins[-1], bins[-1]]
+
+        # Perform the fit
+        param, covariance = fitGaussian(x, f, fr)
+
+        return param[2] / param[1]
+
 
 def savePickleObject(obj, filename):
     """ Pickles and object and saves it to disk """
@@ -365,6 +385,49 @@ def loadPickleObject(filename):
         obj = pickle.load(infile)
 
     return obj
+
+
+def fitGaussian(x, y, fitRange=[]):
+    """ 
+    Perform a gaussian fit to data (x, y) in the fitRange. If fitRange is empty, do fit over entire range
+    Outputs the paramters that minimize the least squares and the covariance matrix
+    """
+
+    xslice, yslice = [], []
+
+    if fitRange:
+        for i in range(len(x)):
+            if x[i] >= fitRange[0] and x[i] <= fitRange[1]:
+                xslice.append(x[i])
+                yslice.append(y[i])
+        xslice = np.array(xslice)
+        yslice = np.array(yslice)
+    else:
+        xslice = x
+        yslice = y
+
+    mui = np.sum(xslice * yslice) / np.sum(yslice)
+    sigmai = np.sqrt(np.sum(yslice * (xslice - mui) ** 2) / np.sum(yslice))
+    pi = [1 / (np.sqrt(2 * np.pi) * sigmai), mui, sigmai]
+
+    param, cov = optimize.curve_fit(gaus, xslice, yslice, p0=pi)
+
+    return param, cov
+
+
+def gaus(x, *par):
+    """
+    Function definition of gaussian.
+    Inputs:
+        x - numpy array of x values to evaluate the value of the gaussian at
+        par[0] - N, amplitude
+        par[1] - mu, mean
+        par[2] - sigma, standard deviation
+    Ouptus:
+        Gaussian with the given parameters for each x values
+    """
+    N, mu, sigma = par
+    return N * np.exp(-(x - mu) ** 2 / (2 * sigma ** 2))
 
 
 if __name__ == "__main__":
