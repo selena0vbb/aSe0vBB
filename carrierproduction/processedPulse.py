@@ -410,7 +410,7 @@ def fitGaussian(x, y, fitRange=[]):
     sigmai = np.sqrt(np.sum(yslice * (xslice - mui) ** 2) / np.sum(yslice))
     pi = [1 / (np.sqrt(2 * np.pi) * sigmai), mui, sigmai]
 
-    param, cov = optimize.curve_fit(gaus, xslice, yslice, p0=pi)
+    param, cov = scp.optimize.curve_fit(gaus, xslice, yslice, p0=pi)
 
     return param, cov
 

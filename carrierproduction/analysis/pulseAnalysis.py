@@ -63,6 +63,7 @@ def readBatchFilesCso(filepath, pattern="*.cso"):
 
     # filters all files in directory with the regex expression
     files2Read = list(filter(r.match, files))
+    simOutFile = []
 
     for i, fr in enumerate(files2Read):
         if i == 0:
@@ -435,15 +436,16 @@ if __name__ == "__main__":
     fieldstr = np.arange(15, 55, 5)
     for field in fieldstr:
         writeBinFiles(
-            "/home/apiers/selena/data/carrier/noise/templatepulses/rawpulses/template_%sVum.dat"
+            "/home/apiers/selena/data/carrier/noise/templatepulses/rawpulses/template_recomb_%sVum.dat"
             % str(field),
             "/home/apiers/selena/data/carrier/noise/templatepulses",
-            inpattern="noise_template_pulses_%sVum_[0-9].cso" % str(field),
+            inpattern="noise_template_wehp_%svum_[0-9].cso" % str(field),
             Ns=1875,
             conversion=1.0 / (1.6e-19),
             fs=62.5,
             fcut=0.00476 / (2 * np.pi),
             btype="high",
+            minEnergy=0,
             addNoise=False,
             filterPulse=True,
             prePulseTime=0,
