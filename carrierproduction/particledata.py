@@ -364,7 +364,7 @@ class gEvent(object):
 class gEventCollection(object):
     """Container for reading, parsing and storing many Geant4 events"""
 
-    def __init__(self, rootFilename=None, eventCounterRange=None, **kwargs):
+    def __init__(self, rootFilename=None, eventCounterRange=None, zoffset=0, **kwargs):
 
         self.rootFilename = rootFilename
         self.collection = []
@@ -398,7 +398,7 @@ class gEventCollection(object):
                     hitsInfo["parentID"] = [entry.ParentID]
                     hitsInfo["x"] = [entry.x]
                     hitsInfo["y"] = [entry.y]
-                    hitsInfo["z"] = [entry.z]
+                    hitsInfo["z"] = [entry.z + zoffset]
                     hitsInfo["energy"] = [entry.energy * 1e3]
                     hitsInfo["particle"] = [entry.ParticleType]
                     hitsInfo["creatorProcess"] = [entry.ProcessName]
@@ -408,7 +408,7 @@ class gEventCollection(object):
                         hitsInfo["secondaryTrackID"] = [entry.SecondaryTrackID]
                         hitsInfo["xi"] = [entry.xi]
                         hitsInfo["yi"] = [entry.yi]
-                        hitsInfo["zi"] = [entry.zi]
+                        hitsInfo["zi"] = [entry.zi + zoffset]
                     except AttributeError:
                         hitsInfo["secondaryTrackID"] = [-1]
                         hitsInfo["xi"] = [0]
@@ -422,7 +422,7 @@ class gEventCollection(object):
                     hitsInfo["parentID"].append(entry.ParentID)
                     hitsInfo["x"].append(entry.x)
                     hitsInfo["y"].append(entry.y)
-                    hitsInfo["z"].append(entry.z)
+                    hitsInfo["z"].append(entry.z + zoffset)
                     hitsInfo["energy"].append(entry.energy * 1e3)
                     hitsInfo["particle"].append(entry.ParticleType)
                     hitsInfo["creatorProcess"].append(entry.ProcessName)
@@ -432,7 +432,7 @@ class gEventCollection(object):
                         hitsInfo["secondaryTrackID"].append(entry.SecondaryTrackID)
                         hitsInfo["xi"].append(entry.xi)
                         hitsInfo["yi"].append(entry.yi)
-                        hitsInfo["zi"].append(entry.zi)
+                        hitsInfo["zi"].append(entry.zi + zoffset)
                     except AttributeError:
                         hitsInfo["secondaryTrackID"].append(-1)
                         hitsInfo["xi"].append(0)

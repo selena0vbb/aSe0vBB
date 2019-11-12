@@ -1,17 +1,17 @@
 # Selenium e&m/particle simulation Config File
 
 # Noise models
-CARRIER_GENERATION_POISSON=1
+CARRIER_GENERATION_POISSON=0
 CARRIER_GENERATION_BINOMIAL=0
 DARK_CURRENT_BINOMIAL=0
-CARRIER_LIFETIME_GEOMETRIC=1
+CARRIER_LIFETIME_GEOMETRIC=0
 CARRIER_LIFETIME_POISSON=0
 CARRIER_SCHEMA=track
 
 # Recombination Model. Length units in mm (as always)
 COLUMNAR_RECOMBINATION=1
-TRACK_RADIUS=2.0e-6
-LINEAR_IONIZATION_DENSITY=4.5e5
+TRACK_RADIUS=2.44e-6
+LINEAR_IONIZATION_DENSITY=5.46e5
 SATURATION_WF=0.0055
 
 # EM settings
@@ -24,11 +24,11 @@ UNIT_CONVERSION_FACTOR=1.e3
 ELEMENTARY_CHARGE=1.6e-19
 ROUND_FINAL_WEIGHTED_PHI=1
 SAVE_PARTIAL_PULSES=1
-X_MIN=-0.49
-X_MAX=0.49
+X_MIN=-0.8
+X_MAX=0.8
 DX=0.01
-Y_MIN=-0.49
-Y_MAX=0.49
+Y_MIN=-0.8
+Y_MAX=0.8
 DY=0.01
 Z_MIN=-0.0999
 Z_MAX=0.099
@@ -36,8 +36,8 @@ DZ=0.004
 
 # aSe Properties
 # Mu in mm^2/(V*us)
-MU_HOLES=14.4e-6
-MU_ELECTRONS=0.5e-6
+MU_HOLES=27.09e-6
+MU_ELECTRONS=0.809e-6
 # Tau in us
 TAU_HOLES=35.0
 TAU_ELECTRONS=440.0
@@ -51,14 +51,14 @@ WORK_FUNCTION=0.018+449.0/E
 
 
 # Simulation Settings
-FAST=0
+FAST=1
 PARALLEL_PROCESS=1
-NPROCESSORS=10.
-NEVENTS_PER_FILE=600
+NPROCESSORS=24.
+NEVENTS_PER_FILE=2000
 GIT_DIR=/home/apiers/aSe0vBB
-OUTPUT_DIR=/home/apiers/selena/data/carrier/debug
-OUTPUT_FILE=pixel_track_schema_wehp_column%i.cso
-EM_FILENAME=/home/apiers/selena/data/em/real_electrode.txt
+OUTPUT_DIR=/home/apiers/selena/data/carrier/recombination
+OUTPUT_FILE=pixel_track_recombination_fitpar_250nm_%i.cso
+EM_FILENAME=/home/apiers/selena/data/em/pixel_detector_2mmdiam_200umAse_3d_small.txt
 PARTICLE_FILENAME=/home/apiers/selena/data/particle/pixel_200umaSe_silayer_250nm_122kev_100k.root
-THREE_DIMENSIONS=0
+THREE_DIMENSIONS=1
 
