@@ -6,11 +6,14 @@
 /event/verbose 0
 
 /gps/ene/mono 122 keV
-/gps/position 0 0 -5.1 mm
+/gps/pos/type Plane
+/gps/pos/shape Circle
+/gps/pos/radius 3 mm
+/gps/position 0 0 19.0 mm
 /gps/ang/type iso
-/gps/ang/mintheta 179 deg
-/analysis/setFileName /home/apiers/mnt/rocks/selena/data/particle/test_secondary_tracks.root
+/gps/ang/maxtheta 20 deg
+/analysis/setFileName /home/apiers/mnt/rocks/selena/data/particle/pixel_200umaSe_disksource_500nm_122kev_5M.root
 /run/setCut 0.5 um
-/run/beamOn 2000
+/run/beamOn 5000000
 
 
