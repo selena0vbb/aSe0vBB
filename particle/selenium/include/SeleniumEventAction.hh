@@ -5,6 +5,7 @@
 
 #include "G4UserEventAction.hh"
 #include "globals.hh"
+#include <vector>
 
 class SeleniumEventAction : public G4UserEventAction
 {
@@ -16,10 +17,9 @@ class SeleniumEventAction : public G4UserEventAction
 		virtual void EndOfEventAction(const G4Event* event);
 
 		// Member functions to add energy to the materials
-		void addEnergyDepSe(G4double energy){fEnergyDepositSe += energy;}
-		void addEnergyDepCuPlate(G4double energy){fEnergyDepositCuPlate += energy;}
-		void addEnergyDepSiO2(G4double energy){fEnergyDepositSiO2 += energy;}
-
+		void AddEnergyDepSe(G4double energy){ fEnergyDepositSe += energy; };
+		void AddEnergyDepCuPlate(G4double energy){ fEnergyDepositCuPlate += energy; };
+		void AddEnergyDepSiO2(G4double energy){ fEnergyDepositSiO2 += energy; };
 
 	private:
 		G4double fEnergyDepositSe;

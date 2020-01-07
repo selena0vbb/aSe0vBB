@@ -32,16 +32,20 @@ class SeleniumHit : public G4VHit
 		void SetParentID(G4int parent) { fParentID = parent; };
 		void SetEdep(G4double energy) { fEdep = energy; };
 		void SetPosition(G4ThreeVector xyz) { fPos = xyz; };
+		void SetInitialPosition(G4ThreeVector xyz) { fPosInit = xyz; };
 		void SetParticleDefinition(G4ParticleDefinition* particle) { fParticleDefinition = particle; };
 		void SetCreatorProcessName(G4String processName) { fCreatorProcessName = processName; };
+		void SetSecondaryTrack(std::vector<const G4Track * > & secondaryTrack) { fSecondaryTrack = secondaryTrack; };
 
 		// Get methods
 		G4int GetTrackID() const { return fTrackID; };
 		G4int GetParentID() const { return fParentID; };
 		G4double GetEdep() const { return fEdep; };
 		G4ThreeVector GetPosition() const { return fPos; };
+		G4ThreeVector GetInitialPosition() const { return fPosInit; };
 		G4ParticleDefinition* GetParticleDefinition() const{ return fParticleDefinition; };
 		G4String GetCreatorProcessName() const { return fCreatorProcessName; };
+		std::vector<const G4Track *> GetSecondaryTrack() { return fSecondaryTrack; };
 
 	private:
 	
@@ -50,8 +54,10 @@ class SeleniumHit : public G4VHit
 		G4int fParentID;
 		G4double fEdep;
 		G4ThreeVector fPos;
+		G4ThreeVector fPosInit;
 		G4ParticleDefinition* fParticleDefinition;
 		G4String fCreatorProcessName;
+		std::vector<const G4Track *> fSecondaryTrack;
 };
 
 typedef G4THitsCollection<SeleniumHit> SeleniumHitsCollection;

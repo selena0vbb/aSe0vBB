@@ -74,19 +74,27 @@ void SeleniumEventAction::EndOfEventAction(const G4Event* event)
 			// Get number of hits. Iterate over all and add to Ntuple
 			G4int numberOfHits = hc->GetSize();
 
+
 			if(numberOfHits > 0)G4cout << numberOfHits << G4endl;
 			for( int i = 0; i < numberOfHits; i++)
 			{
 				hit = (*hc)[i];
+
+				// Fill ntuples with hit values
 				analysisManager->FillNtupleIColumn(1, 0, eventID);
 				analysisManager->FillNtupleIColumn(1, 1, hit->GetTrackID());
 				analysisManager->FillNtupleIColumn(1, 2, hit->GetParentID());
 				analysisManager->FillNtupleDColumn(1, 3, hit->GetPosition().getX());
 				analysisManager->FillNtupleDColumn(1, 4, hit->GetPosition().getY());
 				analysisManager->FillNtupleDColumn(1, 5, hit->GetPosition().getZ());
-				analysisManager->FillNtupleDColumn(1, 6, hit->GetEdep());
-				analysisManager->FillNtupleSColumn(1, 7, hit->GetParticleDefinition()->GetParticleName());
-				analysisManager->FillNtupleSColumn(1, 8, hit->GetCreatorProcessName());
+				analysisManager->FillNtupleDColumn(1, 6, hit->GetInitialPosition().getX());
+				analysisManager->FillNtupleDColumn(1, 7, hit->GetInitialPosition().getY());
+				analysisManager->FillNtupleDColumn(1, 8, hit->GetInitialPosition().getZ());
+				analysisManager->FillNtupleDColumn(1, 9, hit->GetEdep());
+				analysisManager->FillNtupleSColumn(1, 10, hit->GetParticleDefinition()->GetParticleName());
+				analysisManager->FillNtupleSColumn(1, 11, hit->GetCreatorProcessName());
+				// If no secondary tracks, -1, otherwise get the first secondary track ID
+				hit->GetSecondaryTrack().size() == 0 ? analysisManager->FillNtupleIColumn(1, 12, -1) : analysisManager->FillNtupleIColumn(1, 12, hit->GetSecondaryTrack()[0]->GetTrackID());
 				analysisManager->AddNtupleRow(1);
 
 			}

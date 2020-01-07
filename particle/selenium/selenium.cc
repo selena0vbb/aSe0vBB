@@ -30,8 +30,9 @@ int main(int argc, char** argv)
 	}
 	G4String filename="122";
 
-	// Select the random engine
+	// Select the random engine and set the seed
 	G4Random::setTheEngine(new CLHEP::HepJamesRandom);
+	G4Random::setTheSeed(time(0));
 
 	// Creating the G4RunManager
 	G4RunManager* manager = new G4RunManager;

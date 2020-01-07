@@ -3,6 +3,7 @@ import numpy as np
 import os
 import regex as re
 import pwlf
+import array
 
 try:
     import matplotlib.pyplot as plt
@@ -63,6 +64,7 @@ def readBatchFilesCso(filepath, pattern="*.cso"):
 
     # filters all files in directory with the regex expression
     files2Read = list(filter(r.match, files))
+    simOutFile = []
 
     for i, fr in enumerate(files2Read):
         if i == 0:
@@ -135,16 +137,19 @@ def writeBinFiles(
     conversion=800 * 0.05 / (122 * 1.6e-19),
     fs=250.0,
     fcut=[5300.0 * 1e-6, 530000.0 * 1e-6],
+    btype="band",
+    prePulseTime=100,
     addNoise=False,
     filterPulse=False,
     minEnergy=20,
     returnPulse=False,
     returnPulseIdx=0,
     addTwice=False,
+    datatype="uint16",
 ):
 
     data = readBatchFilesCso(infilepath, inpattern)
-    Ns = 50000
+    # Ns = 50000
     nNoise = 3000
     noise = np.zeros(Ns)
     q = 1.6e-19
@@ -152,7 +157,7 @@ def writeBinFiles(
     N = len(data.getPulses())
 
     # parameters for chunking data into smaller files
-    numberOfPulsesPerFile = 500
+    numberOfPulsesPerFile = 10000
     maxNumberOfSamples = numberOfPulsesPerFile * Ns
     totalNumberOfSamples = N * Ns
     numberOfIterations = int(np.ceil(float(N) / numberOfPulsesPerFile))
@@ -166,6 +171,19 @@ def writeBinFiles(
         entryCounter = 0
         nEntries = setree.GetEntries()
 
+    # Create TFile and TTree
+    basefilename = outfile.split(".")[0]
+    rtOutputFilename = basefilename + ".root"
+    rtOutputFile = rt.TFile(rtOutputFilename, "RECREATE")
+
+    outTree = rt.TTree("pulses", "selenium pulse")
+    bNs = array.array("i", [0])
+    bPulses = array.array("i", Ns * [0])
+    bEnergy = array.array("f", [0.0])
+    outTree.Branch("ns", bNs, "ns/I")
+    outTree.Branch("pulses", bPulses, "pulses[ns]/I")
+    outTree.Branch("energy", bEnergy, "energy/F")
+
     # Iterate over the number of chunked files we need to make
     for j in range(numberOfIterations):
         splitfilename = outfile.split(".")
@@ -173,7 +191,7 @@ def writeBinFiles(
         filesWritten.append(chunkOutfile)
 
         # Create the numpy array to store all pulses in (save time over constantly appending a list)
-        pulses = np.zeros(maxNumberOfSamples, "uint16")
+        pulses = np.zeros(maxNumberOfSamples, datatype)
         pulseCounter = 0
 
         # Iterate over each pulse in the data, convert to ADC unsigned 16bit int
@@ -202,6 +220,7 @@ def writeBinFiles(
                     fs=fs,
                     Ns=Ns,
                     conversion=conversion,
+                    prePulseTime=prePulseTime,
                 )
 
                 if data.getPulse(cnt).timeSeries.shape[1] == 4:
@@ -211,6 +230,7 @@ def writeBinFiles(
                         fs=fs,
                         Ns=Ns,
                         conversion=conversion,
+                        prePulseTime=prePulseTime,
                     )
                     singlePulseB = convertPulse2ADC(
                         data.getPulse(cnt).timeSeries[:, 0],
@@ -218,20 +238,21 @@ def writeBinFiles(
                         fs=fs,
                         Ns=Ns,
                         conversion=conversion,
+                        prePulseTime=prePulseTime,
                     )
 
                 if filterPulse:
                     # Filter the pulse with the given RC parameters
                     singlePulse = butter_bandpass_electronic_filter(
-                        singlePulse, lowcut=fcut[0], highcut=fcut[1], fs=fs
+                        singlePulse, fcut, fs=fs, btype=btype
                     )
 
                     if data.getPulse(i).timeSeries.shape[1] == 4:
                         singlePulseA = butter_bandpass_electronic_filter(
-                            singlePulseA, lowcut=fcut[0], highcut=fcut[1], fs=fs
+                            singlePulseA, fcut, fs=fs, btype=btype
                         )
                         singlePulseB = butter_bandpass_electronic_filter(
-                            singlePulseB, lowcut=fcut[0], highcut=fcut[1], fs=fs
+                            singlePulseB, fcut, fs=fs, btype=btype
                         )
 
                 if addNoise:
@@ -273,16 +294,27 @@ def writeBinFiles(
                         singlePulse += noise
                         pulses[
                             pulseCounter * Ns : (pulseCounter + 1) * Ns
-                        ] = singlePulse.astype("uint16")
+                        ] = singlePulse.astype(datatype)
                         if data.getPulse(i).timeSeries.shape[1] == 4:
                             singlePulseA  # += noise
-                            singlePulseA.astype("uint16")
+                            singlePulseA.astype(datatype)
                             singlePulseB  # += noise
-                            singlePulseB.astype("uint16")
-
-                        pulseCounter += 1
+                            singlePulseB.astype(datatype)
                     except ValueError:
                         pass
+                else:
+                    pulses[
+                        pulseCounter * Ns : (pulseCounter + 1) * Ns
+                    ] = singlePulse.astype(datatype)
+
+                pulseCounter += 1
+
+                # Assign values to branch variables and fill tree
+                bNs[0] = Ns
+                # for ni in range(Ns):
+                bPulses[:] = array.array("i", singlePulse.astype(datatype).tolist())
+                bEnergy[0] = np.sum(data.getPulse(cnt).getBinnedEnergy())
+                outTree.Fill()
 
             if returnPulse:
                 if i == returnPulseIdx:
@@ -292,7 +324,9 @@ def writeBinFiles(
                         return singlePulse
         pulses[0 : pulseCounter * Ns].tofile(chunkOutfile)
 
-        # return pulses
+    rtOutputFile.Write()
+    rtOutputFile.Close()
+    # return pulses
     # read the binary files using file operations and keep writing to the same file
     # combineDatFiles(filesWritten, outfile)
 
@@ -312,52 +346,6 @@ def combineDatFiles(filelist, outfile):
         partialFile.close()
 
     finalFile.close()
-
-
-def generateRootFile(path, pattern, outputfile):
-
-    data = readBatchFiles(path, pattern)
-
-    # Iterate over data to get depth
-    depth = []
-    energy = []
-    q, w = (1.6e-19, 0.05)
-    print (data.shape[0])
-    for i in range(5):  # data.shape[0]):
-        print (i)
-        time = data[i][0]
-        pulse = data[i][1]
-        if data[i][0].shape == (1,):
-            pass
-        else:
-            fitobj, result = fitLinearPiecewise(time, pulse, 2)
-            depth.append(fitobj.predict([result[1]])[0])
-            energy.append(abs(data[i][1][-1] / q * w))
-
-    h = rt.TH1D("eneSim", "Simulation Spectra", 140, 0, 140)
-    rt.gROOT.ProcessLine(
-        "struct simdata{ \
-             Int_t depthT; \
-             Int_t energyT; \
-             }; "
-    )
-    simdata = rt.simdata()
-    tree = rt.TTree("trueData", "trueData")
-    tree.Branch("depthT", rt.AddressOf(simdata, "depthT"))
-    tree.Branch("energyT", rt.AddressOf(simdata, "energyT"))
-
-    for i in range(len(energy)):
-        h.Fill(energy[i])
-        simdata.depthT = depth[i]
-        simdata.energyT = energy[i]
-
-        tree.Fill()
-
-    tree.Print()
-    tf = rt.TFile(outputfile, "RECREATE")
-    h.Write()
-    tree.Write()
-    tf.Close()
 
 
 def convertPulse2ADC(
@@ -393,21 +381,19 @@ def convertPulse2ADC(
     return (signalADC).astype(datatype)
 
 
-def butter_bandpass_electronic(lowcut, highcut, fs, order=1):
+def butter_bandpass_electronic(fcut, fs, order=1, btype="band"):
     nyq = 0.5 * fs
-    low = lowcut / nyq
-    high = highcut / nyq
-    b, a = scp.butter(order, [low, high], btype="band")
+    fcutRel = np.array(fcut) / nyq
+    b, a = scp.butter(order, fcutRel, btype=btype)
     return b, a
 
 
-def butter_bandpass_electronic_filter(data, lowcut, highcut, fs, order=1):
+def butter_bandpass_electronic_filter(data, fcut, fs, order=1, btype="band"):
     """ Applies a butterworth bandpass of order=order and lowcut and highcut cutoff frequencies to the daata
     """
 
-    b, a = butter_bandpass_electronic(lowcut, highcut, fs, order=order)
-    # zi = scp.lfilter_zi(b, a)
-    y = scp.lfilter(b, a, data)  # , zi=zi*data[0])
+    b, a = butter_bandpass_electronic(fcut, fs, order=order, btype=btype)
+    y = scp.lfilter(b, a, data)
     # y = scp.filtfilt(b, a, data)
     return y
 
@@ -424,38 +410,57 @@ if __name__ == "__main__":
     # ax.hist(coplanarEnergy, bins=140, linewidth=3, histtype="step", label="Coplanar", density=True)
     # plt.show()
 
-    pulseRaw = writeBinFiles(
-        "/home/apiers/mnt/rocks/selena/data/carrier/extendedSize/pixel_test.dat",
-        "/home/apiers/mnt/rocks/selena/data/carrier/extendedSize",
-        inpattern="pixel_100k_3D_varnehp_trace_pt0.cso",
-        Ns=50000,
-        conversion=800 * 0.0407 / (122 * 1.6e-19),
-        fs=250.0,
-        fcut=[5300.0 * 1e-6, 530000.0 * 1e-6],
-        addNoise=False,
-        filterPulse=True,
-        minEnergy=20,
-        returnPulse=True,
-        returnPulseIdx=9,
-        addTwice=False,
-    )
+    fieldstr = np.arange(15, 55, 5)
+    for field in fieldstr:
+        writeBinFiles(
+            "/home/apiers/selena/data/carrier/noise/templatepulses/2019-12-03-charge/rawpulses/template_pulse_no_trap_%sVum.dat"
+            % str(field),
+            "/home/apiers/selena/data/carrier/noise/templatepulses/2019-12-03-charge",
+            inpattern="noise_template_pulse_charge_%svum_[0-9].cso" % str(field),
+            Ns=1875,
+            conversion=1.0 / (1.6e-19),
+            fs=62.5,
+            fcut=0.00588 / (2 * np.pi),
+            btype="high",
+            minEnergy=0,
+            addNoise=False,
+            filterPulse=True,
+            prePulseTime=0,
+            datatype="int16",
+        )
 
-    fig, ax = plt.subplots(1, 1, figsize=(14, 9))
-    ax.plot(scp.decimate(pulse, 10), "k", linewidth=3, label="Noisy Simulated Pulse")
+    # pulseRaw = writeBinFiles(
+    #     "/home/apiers/mnt/rocks/selena/data/carrier/extendedSize/pixel_test.dat",
+    #     "/home/apiers/mnt/rocks/selena/data/carrier/extendedSize",
+    #     inpattern="pixel_100k_3D_varnehp_trace_pt0.cso",
+    #     Ns=50000,
+    #     conversion=800 * 0.0407 / (122 * 1.6e-19),
+    #     fs=250.0,
+    #     fcut=[5300.0 * 1e-6, 530000.0 * 1e-6],
+    #     addNoise=False,
+    #     filterPulse=True,
+    #     minEnergy=20,
+    #     returnPulse=True,
+    #     returnPulseIdx=9,
+    #     addTwice=False,
+    # )
 
-    ax.plot(
-        scp.decimate(pulseRaw + 3650, 10), "--b", linewidth=2, label="Simulated Pulse"
-    )
-    ax.plot((3600 - 800) * np.ones(5000), "-r", linewidth=3, label="Actual Energy")
-    ax.legend(fontsize=18)
-    ax.set_xlabel("Time [samples]", fontsize=18)
-    ax.set_ylabel("Amplitude [ADU]", fontsize=18)
-    ax.set_xlim(2200, 3000)
-    fig.savefig(
-        "/home/apiers/Documents/UW/CENPA Annual Report/2019/Selena/pixelnoise.png",
-        bbox_inches="tight",
-    )
-    plt.show()
+    # fig, ax = plt.subplots(1, 1, figsize=(14, 9))
+    # ax.plot(scp.decimate(pulse, 10), "k", linewidth=3, label="Noisy Simulated Pulse")
+
+    # ax.plot(
+    #     scp.decimate(pulseRaw + 3650, 10), "--b", linewidth=2, label="Simulated Pulse"
+    # )
+    # ax.plot((3600 - 800) * np.ones(5000), "-r", linewidth=3, label="Actual Energy")
+    # ax.legend(fontsize=18)
+    # ax.set_xlabel("Time [samples]", fontsize=18)
+    # ax.set_ylabel("Amplitude [ADU]", fontsize=18)
+    # ax.set_xlim(2200, 3000)
+    # fig.savefig(
+    #     "/home/apiers/Documents/UW/CENPA Annual Report/2019/Selena/pixelnoise.png",
+    #     bbox_inches="tight",
+    # )
+    # plt.show()
 
     # fig, ax = plt.subplots(1, 1, figsize=(14,9))
     # ax.plot(scp.decimate(pulse[0],10), "k", linewidth=3, label="Noisy Differential Signal")
