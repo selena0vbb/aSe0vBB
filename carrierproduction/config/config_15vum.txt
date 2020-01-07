@@ -6,10 +6,10 @@ CARRIER_GENERATION_BINOMIAL=0
 DARK_CURRENT_BINOMIAL=0
 CARRIER_LIFETIME_GEOMETRIC=0
 CARRIER_LIFETIME_POISSON=0
-CARRIER_SCHEMA=track
+CARRIER_SCHEMA=bin
 
 # Recombination Model. Length units in mm (as always)
-COLUMNAR_RECOMBINATION=1
+COLUMNAR_RECOMBINATION=0
 TRACK_RADIUS=2.44e-6
 LINEAR_IONIZATION_DENSITY=5.46e5
 SATURATION_WF=0.0055
@@ -24,20 +24,21 @@ UNIT_CONVERSION_FACTOR=1.e3
 ELEMENTARY_CHARGE=1.6e-19
 ROUND_FINAL_WEIGHTED_PHI=1
 SAVE_PARTIAL_PULSES=1
-X_MIN=-0.8
-X_MAX=0.8
+X_MIN=-1.0
+X_MAX=1.0
 DX=0.01
 Y_MIN=-0.8
 Y_MAX=0.8
-DY=0.01
+DY=0.005
 Z_MIN=-0.0999
 Z_MAX=0.099
-DZ=0.002
+Z_OFFSET=0.1
+DZ=0.001
 
 # aSe Properties
 # Mu in mm^2/(V*us)
-MU_HOLES=19.1e-6
-MU_ELECTRONS=0.651e-6
+MU_HOLES=17.3e-6
+MU_ELECTRONS=0.541e-6
 # Tau in us
 TAU_HOLES=35.0
 TAU_ELECTRONS=440.0
@@ -47,18 +48,18 @@ DT_ELECTRONS=0.8
 # Total allowed time
 TOTAL_TIME_HOLES=20
 TOTAL_TIME_ELECTRONS=200
-WORK_FUNCTION=0.018+449.0/E
+WORK_FUNCTION=1+0/E
 
 
 # Simulation Settings
 FAST=0
 PARALLEL_PROCESS=1
 NPROCESSORS=24.
-NEVENTS_PER_FILE=15000
+NEVENTS_PER_FILE=1000
 GIT_DIR=/home/apiers/aSe0vBB
-OUTPUT_DIR=/home/apiers/selena/data/carrier/noise/templatepulses
-OUTPUT_FILE=pixel_ecomb_fitpar_15vum_%i.cso
+OUTPUT_DIR=/home/apiers/selena/data/carrier/noise/templatepulses/2019-12-03-charge
+OUTPUT_FILE=noise_template_pulse_charge_15vum_%i.cso
 EM_FILENAME=/home/apiers/selena/data/em/pixel_detector_2mmdiam_200umAse_3d_small.txt
-PARTICLE_FILENAME=/home/apiers/selena/data/particle/noise_template_200umaSe_500nm_2500k.root
+PARTICLE_FILENAME=/home/apiers/selena/data/charge/charge_E15_r02.72_w04.0_400nm.root
 THREE_DIMENSIONS=1
 
