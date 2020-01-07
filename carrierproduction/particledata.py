@@ -50,8 +50,8 @@ class gEvent(object):
         # Initialize variables
         self.gEventID = gEventID
         if hits:
-            self.trackID = hits["trackID"]
-            self.parentID = hits["parentID"]
+            self.trackID = hits["TrackID"]
+            self.parentID = hits["ParentID"]
             self.x = hits["x"]
             self.y = hits["y"]
             self.z = hits["z"]
@@ -59,8 +59,8 @@ class gEvent(object):
             self.yi = hits["yi"]
             self.zi = hits["zi"]
             self.energy = hits["energy"]
-            self.particle = hits["particle"]
-            self.creatorProcess = hits["creatorProcess"]
+            self.particle = hits["ParticleType"]
+            self.creatorProcess = hits["ProcessName"]
             self.secondaryTrackID = hits["secondaryTrackID"]
         else:
             self.trackID = []
@@ -377,72 +377,53 @@ class gEventCollection(object):
             eventID = -1
             eventCounter = 0
 
-            # Iterate over all of the entries in the tree, extracting tuple i
-            for entry in tree:
-                if eventID != entry.EventID:
-                    if eventID != -1:
-                        if eventCounterRange != None:
-                            if eventCounter >= eventCounterRange[0]:
-                                self.collection.append(
-                                    gEvent(gEventID=eventID, hits=hitsInfo)
-                                )
-                        else:
-                            self.collection.append(
-                                gEvent(gEventID=eventID, hits=hitsInfo)
-                            )
-                        eventCounter += 1
+            # Convert tree to numpy array
+            treeArray = tree.AsMatrix()
 
-                    hitsInfo = {}
-                    eventID = entry.EventID
-                    hitsInfo["trackID"] = [entry.TrackID]
-                    hitsInfo["parentID"] = [entry.ParentID]
-                    hitsInfo["x"] = [entry.x]
-                    hitsInfo["y"] = [entry.y]
-                    hitsInfo["z"] = [entry.z + zoffset]
-                    hitsInfo["energy"] = [entry.energy * 1e3]
-                    hitsInfo["particle"] = [entry.ParticleType]
-                    hitsInfo["creatorProcess"] = [entry.ProcessName]
+            # Get the branch names
+            branchListObj = tree.GetListOfBranches()
+            branchName = []
+            for i in range(branchListObj.GetEntries()):
+                branchName.append(branchListObj[i].GetName())
 
-                    # Add additional parameters to the hit. For backwords compatibility
-                    try:
-                        hitsInfo["secondaryTrackID"] = [entry.SecondaryTrackID]
-                        hitsInfo["xi"] = [entry.xi]
-                        hitsInfo["yi"] = [entry.yi]
-                        hitsInfo["zi"] = [entry.zi + zoffset]
-                    except AttributeError:
-                        hitsInfo["secondaryTrackID"] = [-1]
-                        hitsInfo["xi"] = [0]
-                        hitsInfo["yi"] = [0]
-                        hitsInfo["zi"] = [0]  # Default values. No information
-                    except:
-                        pass
+            # Find unique eventIDs
+            uniqueEventIDs = np.unique(treeArray[:, 0])
+            if eventCounterRange:
+                uniqueEventIDsCut = uniqueEventIDs[
+                    eventCounterRange[0] : eventCounterRange[1]
+                ]
+            else:
+                uniqueEventIDsCut = uniqueEventIDs
 
-                else:
-                    hitsInfo["trackID"].append(entry.TrackID)
-                    hitsInfo["parentID"].append(entry.ParentID)
-                    hitsInfo["x"].append(entry.x)
-                    hitsInfo["y"].append(entry.y)
-                    hitsInfo["z"].append(entry.z + zoffset)
-                    hitsInfo["energy"].append(entry.energy * 1e3)
-                    hitsInfo["particle"].append(entry.ParticleType)
-                    hitsInfo["creatorProcess"].append(entry.ProcessName)
+            # Parse eventIDs to eventcollections
+            for i in range(uniqueEventIDsCut.size):
+                eventID = uniqueEventIDsCut[i]
+                hitsInfo = {}
 
-                    # Add additional parameters to the hit. For backwords compatibility
-                    try:
-                        hitsInfo["secondaryTrackID"].append(entry.SecondaryTrackID)
-                        hitsInfo["xi"].append(entry.xi)
-                        hitsInfo["yi"].append(entry.yi)
-                        hitsInfo["zi"].append(entry.zi + zoffset)
-                    except AttributeError:
-                        hitsInfo["secondaryTrackID"].append(-1)
-                        hitsInfo["xi"].append(0)
-                        hitsInfo["yi"].append(0)
-                        hitsInfo["zi"].append(0)  # Default values. No information
-                    except:
-                        pass
+                particleEvent = gEvent(gEventID=eventID)
+                idxSlice = treeArray[:, 0] == eventID
 
-                if eventCounterRange != None and eventCounter >= eventCounterRange[1]:
-                    break
+                particleEvent.trackID = treeArray[idxSlice, 1]
+                particleEvent.parentID = treeArray[idxSlice, 2]
+                particleEvent.x = treeArray[idxSlice, 3]
+                particleEvent.y = treeArray[idxSlice, 4]
+                particleEvent.z = treeArray[idxSlice, 5] + zoffset
+                particleEvent.energy = treeArray[idxSlice, 6]
+                particleEvent.particle = treeArray[idxSlice, 7]
+                particleEvent.creatorProcess = treeArray[idxSlice, 8]
+
+                try:
+                    particleEvent.secondaryTrackID = treeArray[idxSlice, 9]
+                    particleEvent.xi = treeArray[idxSlice, 10]
+                    particleEvent.yi = treeArray[idxSlice, 11]
+                    particleEvent.zi = treeArray[idxSlice, 12] + zoffset
+                except IndexError:
+                    particleEvent.secondaryTrackID = [-1]
+                    particleEvent.xi = np.array([0])
+                    particleEvent.yi = np.array([0])
+                    particleEvent.zi = np.array([0]) + zoffset
+
+                self.collection.append(particleEvent)
 
             self.totalNEvents = len(self.collection)
         else:
@@ -1178,18 +1159,18 @@ def numberOfEvents(rootFile, key="EneDepSe"):
 
 if __name__ == "__main__":
     # used for debuggin information. If the particledata.py file is run this segment of the code will run
-    filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\pixel_sio2_122kev_0degangle_200k.root"
-    filenameAngle = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\pixel_sio2_122kev_75degangle_200k.root"
-    emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt"
-    configfilename = r"./config.txt"
+    # filename = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\pixel_sio2_122kev_0degangle_200k.root"
+    # filenameAngle = r"C:\Users\alexp\Documents\UW\Research\Selenium\aSe0vBB\particle\selenium-build\output\pixel_sio2_122kev_75degangle_200k.root"
+    # emfilename = r"C:\Users\alexp\Documents\UW\Research\Selenium\Coplanar Detector\sim_data\kapton_layer_analysis_5um_spacing_fullsize.txt"
+    # configfilename = r"./config.txt"
 
-    settings = sc.readConfigFile(configfilename)
+    # settings = sc.readConfigFile(configfilename)
 
-    # Create new collection
-    newCollection = gEventCollection(filename, [0, 150])
-    newCollection.printInfo()
+    # # Create new collection
+    # newCollection = gEventCollection(filename, [0, 150])
+    # newCollection.printInfo()
 
-    newCollection.plotAngularDistribution1D()
+    # newCollection.plotAngularDistribution1D()
     # Create simulation object
     # simObject = CarrierSimulation(emfilename=emfilename, eventCollection=newCollection, configfile=configfilename)
 
@@ -1206,3 +1187,4 @@ if __name__ == "__main__":
     # ax.set_ylabel('Charge (keV)', fontsize=14)
     # ax.legend()
     # plt.show()
+    gEventCollection("/home/apiers/selena/data/charge/charge_E30_r01.09_w09.0.root")

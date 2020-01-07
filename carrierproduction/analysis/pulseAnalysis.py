@@ -3,6 +3,7 @@ import numpy as np
 import os
 import regex as re
 import pwlf
+import array
 
 try:
     import matplotlib.pyplot as plt
@@ -170,6 +171,19 @@ def writeBinFiles(
         entryCounter = 0
         nEntries = setree.GetEntries()
 
+    # Create TFile and TTree
+    basefilename = outfile.split(".")[0]
+    rtOutputFilename = basefilename + ".root"
+    rtOutputFile = rt.TFile(rtOutputFilename, "RECREATE")
+
+    outTree = rt.TTree("pulses", "selenium pulse")
+    bNs = array.array("i", [0])
+    bPulses = array.array("i", Ns * [0])
+    bEnergy = array.array("f", [0.0])
+    outTree.Branch("ns", bNs, "ns/I")
+    outTree.Branch("pulses", bPulses, "pulses[ns]/I")
+    outTree.Branch("energy", bEnergy, "energy/F")
+
     # Iterate over the number of chunked files we need to make
     for j in range(numberOfIterations):
         splitfilename = outfile.split(".")
@@ -295,6 +309,13 @@ def writeBinFiles(
 
                 pulseCounter += 1
 
+                # Assign values to branch variables and fill tree
+                bNs[0] = Ns
+                # for ni in range(Ns):
+                bPulses[:] = array.array("i", singlePulse.astype(datatype).tolist())
+                bEnergy[0] = np.sum(data.getPulse(cnt).getBinnedEnergy())
+                outTree.Fill()
+
             if returnPulse:
                 if i == returnPulseIdx:
                     if data.getPulse(i).timeSeries.shape[1] == 4:
@@ -303,7 +324,9 @@ def writeBinFiles(
                         return singlePulse
         pulses[0 : pulseCounter * Ns].tofile(chunkOutfile)
 
-        # return pulses
+    rtOutputFile.Write()
+    rtOutputFile.Close()
+    # return pulses
     # read the binary files using file operations and keep writing to the same file
     # combineDatFiles(filesWritten, outfile)
 
@@ -323,52 +346,6 @@ def combineDatFiles(filelist, outfile):
         partialFile.close()
 
     finalFile.close()
-
-
-def generateRootFile(path, pattern, outputfile):
-
-    data = readBatchFiles(path, pattern)
-
-    # Iterate over data to get depth
-    depth = []
-    energy = []
-    q, w = (1.6e-19, 0.05)
-    print (data.shape[0])
-    for i in range(5):  # data.shape[0]):
-        print (i)
-        time = data[i][0]
-        pulse = data[i][1]
-        if data[i][0].shape == (1,):
-            pass
-        else:
-            fitobj, result = fitLinearPiecewise(time, pulse, 2)
-            depth.append(fitobj.predict([result[1]])[0])
-            energy.append(abs(data[i][1][-1] / q * w))
-
-    h = rt.TH1D("eneSim", "Simulation Spectra", 140, 0, 140)
-    rt.gROOT.ProcessLine(
-        "struct simdata{ \
-             Int_t depthT; \
-             Int_t energyT; \
-             }; "
-    )
-    simdata = rt.simdata()
-    tree = rt.TTree("trueData", "trueData")
-    tree.Branch("depthT", rt.AddressOf(simdata, "depthT"))
-    tree.Branch("energyT", rt.AddressOf(simdata, "energyT"))
-
-    for i in range(len(energy)):
-        h.Fill(energy[i])
-        simdata.depthT = depth[i]
-        simdata.energyT = energy[i]
-
-        tree.Fill()
-
-    tree.Print()
-    tf = rt.TFile(outputfile, "RECREATE")
-    h.Write()
-    tree.Write()
-    tf.Close()
 
 
 def convertPulse2ADC(
@@ -436,14 +413,14 @@ if __name__ == "__main__":
     fieldstr = np.arange(15, 55, 5)
     for field in fieldstr:
         writeBinFiles(
-            "/home/apiers/selena/data/carrier/noise/templatepulses/rawpulses/template_recomb_%sVum.dat"
+            "/home/apiers/selena/data/carrier/noise/templatepulses/2019-12-03-charge/rawpulses/template_pulse_no_trap_%sVum.dat"
             % str(field),
-            "/home/apiers/selena/data/carrier/noise/templatepulses",
-            inpattern="noise_template_wehp_%svum_[0-9].cso" % str(field),
+            "/home/apiers/selena/data/carrier/noise/templatepulses/2019-12-03-charge",
+            inpattern="noise_template_pulse_charge_%svum_[0-9].cso" % str(field),
             Ns=1875,
             conversion=1.0 / (1.6e-19),
             fs=62.5,
-            fcut=0.00476 / (2 * np.pi),
+            fcut=0.00588 / (2 * np.pi),
             btype="high",
             minEnergy=0,
             addNoise=False,
