@@ -444,62 +444,56 @@ if __name__ == "__main__":
 
     # Create the data for the simulated pulse objects
 
-    # Load test particle data
-    # eventCol = pd.gEventCollection(
-    #     "/home/apiers/mnt/rocks/selena/data/particle/pixel_sio2_122kev_12degBeam_100k.root",
-    #     eventCounterRange=[0, 5],
-    # )
+    Load test particle data
+    eventCol = pd.gEventCollection(
+        "/home/apiers/mnt/rocks/selena/data/particle/pixel_sio2_122kev_12degBeam_100k.root",
+        eventCounterRange=[0, 5],
+    )
 
-    # # Load config file
-    # config = sc.readConfigFile(
-    #     "/home/apiers/mnt/rocks/aSe0vBB/carrierproduction/config.txt"
-    # )
+    # Load config file
+    config = sc.readConfigFile(
+        "/home/apiers/mnt/rocks/aSe0vBB/carrierproduction/config.txt"
+    )
 
-    # # Create fake data
-    # n = 100
-    # t = np.linspace(0, 10, n)
-    # s1 = t[0 : int(np.random.uniform(1, n))] * np.random.uniform(0, 1)
-    # s2 = t[0 : int(np.random.uniform(1, n))] * np.random.uniform(0, 1)
-    # signal = np.concatenate((s1, s1[-1] * np.ones(n - s1.size))) + np.concatenate(
-    #     (s2, s2[-1] * np.ones(n - s2.size))
-    # )
-    # x, y, z = [1, 1, 1], [1, 2, 3], [5, 7, 7]
-    # energy = np.array([12, 10, 100])
-    # wehp = np.array([0.04, 0.041, 0.042])
-    # nehp = energy / wehp
-    # nehpf = np.random.poisson(nehp)
+    # Create fake data
+    n = 100
+    t = np.linspace(0, 10, n)
+    s1 = t[0 : int(np.random.uniform(1, n))] * np.random.uniform(0, 1)
+    s2 = t[0 : int(np.random.uniform(1, n))] * np.random.uniform(0, 1)
+    signal = np.concatenate((s1, s1[-1] * np.ones(n - s1.size))) + np.concatenate(
+        (s2, s2[-1] * np.ones(n - s2.size))
+    )
+    x, y, z = [1, 1, 1], [1, 2, 3], [5, 7, 7]
+    energy = np.array([12, 10, 100])
+    wehp = np.array([0.04, 0.041, 0.042])
+    nehp = energy / wehp
+    nehpf = np.random.poisson(nehp)
 
-    # # Create and test functionality of simulated pulse object
-    # simpulse = SimulatedPulse(**config)
-    # simpulse.setG4Event(eventCol.collection[1])
-    # simpulse.setBinnedPosition(x, y, z)
-    # simpulse.setBinnedEnergy(energy)
-    # simpulse.setWehp(wehp)
-    # simpulse.setNehp(nehp, nehpf)
-    # simpulse.setTimeSeries(t, signal)
-    # simpulse.computeStats()
-    # print (simpulse)
-    # oldclass = str(simpulse)
+    # Create and test functionality of simulated pulse object
+    simpulse = SimulatedPulse(**config)
+    simpulse.setG4Event(eventCol.collection[1])
+    simpulse.setBinnedPosition(x, y, z)
+    simpulse.setBinnedEnergy(energy)
+    simpulse.setWehp(wehp)
+    simpulse.setNehp(nehp, nehpf)
+    simpulse.setTimeSeries(t, signal)
+    simpulse.computeStats()
+    print (simpulse)
+    oldclass = str(simpulse)
 
-    # # Create simulated output file object
-    # simfile = SimulatedOutputFile(settings=config, outputfile="./test.npy")
-    # simfile.addPulses(simpulse)
-    # simfile.setGitInfo("/home/apiers/mnt/rocks/aSe0vBB")
-    # print ("\n")
-    # simfile.printInfo()
-    # print ("\n")
-    # print (simfile.getGitInfoStr())
+    # Create simulated output file object
+    simfile = SimulatedOutputFile(settings=config, outputfile="./test.npy")
+    simfile.addPulses(simpulse)
+    simfile.setGitInfo("/home/apiers/mnt/rocks/aSe0vBB")
+    print ("\n")
+    simfile.printInfo()
+    print ("\n")
+    print (simfile.getGitInfoStr())
 
-    # # Save file
-    # savePickleObject(simfile, simfile.outputfile)
+    # Save file
+    savePickleObject(simfile, simfile.outputfile)
 
-    # # Load file and print results to compare
-    # loadSimfile = loadPickleObject(simfile.outputfile)
-    # newclass = str(loadSimfile.pulses[0])
-    # assert oldclass == newclass
-
-    # 
-    from processedPulse import SimulatedOutputFile
-    print("\n\nTest Loading simulation file:\n")
-    realSimulationObj = loadPickleObject("carrierproduction/noise_template_pulses_35Vum_8.cso")
-    print(realSimulationObj)
+    # Load file and print results to compare
+    loadSimfile = loadPickleObject(simfile.outputfile)
+    newclass = str(loadSimfile.pulses[0])
+    assert oldclass == newclass
