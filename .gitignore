@@ -1,6 +1,6 @@
 # virtualenv files
 selenv/
-
+env*/
 # particle simulation build files
 particle/selenium-build/
 CMakeFiles/
@@ -9,3 +9,5 @@ output/
 # .pyc files
 *.pyc
 localconfig.txt
+# simulation output files
+*.cso
