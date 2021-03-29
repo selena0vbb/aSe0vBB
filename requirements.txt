@@ -24,7 +24,7 @@ ptyprocess==0.6.0
 pwlf==0.2.9
 pyDOE==0.3.8
 pyflakes==2.0.0
-Pygments==2.2.0
+Pygments==2.7.4
 pyparsing==2.2.0
 python-dateutil==2.7.0
 pytz==2018.3
