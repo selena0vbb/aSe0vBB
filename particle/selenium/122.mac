@@ -12,8 +12,8 @@
 /gps/position 0 0 19.0 mm
 /gps/ang/type iso
 /gps/ang/maxtheta 20 deg
-/analysis/setFileName /home/apiers/mnt/rocks/selena/data/particle/pixel_200umaSe_disksource_500nm_122kev_5M.root
+/analysis/setFileName /home/apiers/selena/aSe0vBB/particle/pixel_200umaSe_disksource_500nm_122kev_100k.root
 /run/setCut 0.5 um
-/run/beamOn 5000000
+/run/beamOn 100000
 
 

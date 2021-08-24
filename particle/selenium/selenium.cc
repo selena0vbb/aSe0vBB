@@ -4,10 +4,9 @@
 #include "SeleniumDetectorConstruction.hh"
 #include "SeleniumActionInitialization.hh"
 #include "SeleniumPhysicsList.hh"
-#include "DAMICPhysicsList.hh"
-#include "DAMICPhysicsListLivermore.hh"
 
 #include "G4RunManager.hh"
+#include "G4RunManagerFactory.hh"
 #include "G4VisExecutive.hh"
 #include "G4UImanager.hh"
 #include "G4UIExecutive.hh"
@@ -35,7 +34,7 @@ int main(int argc, char** argv)
 	G4Random::setTheSeed(time(0));
 
 	// Creating the G4RunManager
-	G4RunManager* manager = new G4RunManager;
+	auto* manager =  G4RunManagerFactory::CreateRunManager(G4RunManagerType::Default);
 
 	// Set required initializations--detector geometry, physics list, action steps, etc.
 

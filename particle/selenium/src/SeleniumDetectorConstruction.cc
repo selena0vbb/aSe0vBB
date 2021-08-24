@@ -114,38 +114,38 @@ G4VPhysicalVolume* SeleniumDetectorConstruction::Construct()
 	// Defining copper collimator. (Copper block-tube)
 
 	// Define copper trapezoid for the collimator
-	G4VSolid* copperS = new G4Trd("CopperTrap",
-				copperX2/2,
-				copperX1/2,
-				copperY/2,
-				copperY/2,
-				copperZ/2);
+	// G4VSolid* copperS = new G4Trd("CopperTrap",
+	// 			copperX2/2,
+	// 			copperX1/2,
+	// 			copperY/2,
+	// 			copperY/2,
+	// 			copperZ/2);
 
-	// Defining collimator gap
-	G4VSolid* collimatedGapS = new G4Tubs("CollimatedGap",
-				0,
-				collimatorRadius,
-				copperZ/2,
-				0, twopi);
+	// // Defining collimator gap
+	// G4VSolid* collimatedGapS = new G4Tubs("CollimatedGap",
+	// 			0,
+	// 			collimatorRadius,
+	// 			copperZ/2,
+	// 			0, twopi);
 
-	G4VSolid* collimatorS = new G4SubtractionSolid("Collimator",
-				copperS,
-				collimatedGapS,
-				0, G4ThreeVector());
+	// G4VSolid* collimatorS = new G4SubtractionSolid("Collimator",
+	// 			copperS,
+	// 			collimatedGapS,
+	// 			0, G4ThreeVector());
 
-	G4LogicalVolume* collimatorLV = 
-		new G4LogicalVolume(collimatorS,
-				Cu,
-				"Collimator");
+	// G4LogicalVolume* collimatorLV = 
+	// 	new G4LogicalVolume(collimatorS,
+	// 			Cu,
+	// 			"Collimator");
 
-	G4VPhysicalVolume* collimatorPV = 
-		new G4PVPlacement(0,
-		        G4ThreeVector(0, 0, (seleniumDepth + copperZ)/2 + airSpacingZ),
-		        collimatorLV,
-		        "CopperBlocking",
-		        logicalWorld,
-		        false,
-		        0);
+	// G4VPhysicalVolume* collimatorPV = 
+	// 	new G4PVPlacement(0,
+	// 	        G4ThreeVector(0, 0, (seleniumDepth + copperZ)/2 + airSpacingZ),
+	// 	        collimatorLV,
+	// 	        "CopperBlocking",
+	// 	        logicalWorld,
+	// 	        false,
+	// 	        0);
 
 	// Create copper electrodes for pixel electrodes
 	// Top Plate

@@ -10,7 +10,7 @@
 
 // Defining geometries of the problem
 const G4double seleniumXY = 10. * mm;
-const G4double seleniumDepth = 0.2 * mm;
+const G4double seleniumDepth = 0.5 * mm;
 const G4double glassDepth = 1. * mm;
 const G4double copperZ = 12.5 * mm;
 const G4double copperX1 = 17.8 * mm;

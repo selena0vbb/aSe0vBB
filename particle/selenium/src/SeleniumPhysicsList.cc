@@ -58,33 +58,36 @@ SeleniumPhysicsList::~SeleniumPhysicsList()
 void SeleniumPhysicsList::ConstructParticle()
 {
 
-	// Imaginary tracking particles
-	G4Geantino::GeantinoDefinition();
-	G4ChargedGeantino::ChargedGeantinoDefinition();
+	// // Imaginary tracking particles
+	// G4Geantino::GeantinoDefinition();
+	// G4ChargedGeantino::ChargedGeantinoDefinition();
 
-	// Gamma
-	G4Gamma::GammaDefinition();
+	// // Gamma
+	// G4Gamma::GammaDefinition();
 
-	// Optical photon
-	G4OpticalPhoton::OpticalPhotonDefinition();
+	// // Optical photon
+	// G4OpticalPhoton::OpticalPhotonDefinition();
 
-	// Leptons
-	G4Electron::ElectronDefinition();
-	G4Positron::PositronDefinition();
+	// // Leptons
+	// G4Electron::ElectronDefinition();
+	// G4Positron::PositronDefinition();
+	// G4MuonPlus::MuonPlusDefinition();
+	// G4MuonMinus::MuonMinusDefinition();
 
-	G4NeutrinoE::NeutrinoEDefinition();
-	G4AntiNeutrinoE::AntiNeutrinoEDefinition();
+	// G4NeutrinoE::NeutrinoEDefinition();
+	// G4AntiNeutrinoE::AntiNeutrinoEDefinition();
 
-	// Barions
-	G4Proton::ProtonDefinition();
-	G4AntiProton::AntiProtonDefinition();
-	G4Neutron::NeutronDefinition();
-	G4AntiNeutron::AntiNeutronDefinition();
+	// // Barions
+	// G4Proton::ProtonDefinition();
+	// G4AntiProton::AntiProtonDefinition();
+	// G4Neutron::NeutronDefinition();
+	// G4AntiNeutron::AntiNeutronDefinition();
 
-	G4Deuteron::DeuteronDefinition();
-	G4Triton::TritonDefinition();
-	G4Alpha::AlphaDefinition();
-	G4GenericIon::GenericIonDefinition();
+	// G4Deuteron::DeuteronDefinition();
+	// G4Triton::TritonDefinition();
+	// G4Alpha::AlphaDefinition();
+	// G4GenericIon::GenericIonDefinition();
+	fEmPhysics->ConstructParticle();
 
 }
 
