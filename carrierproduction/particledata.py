@@ -367,7 +367,9 @@ class gEventCollection(object):
     def __init__(self, rootFilename=None, eventCounterRange=None, zoffset=0, **kwargs):
 
         self.rootFilename = rootFilename
+        self.treeArray = []
         self.collection = []
+        self.uniqueEventIDs = []
 
         if rootFilename:
             # Read the data from the file
@@ -378,7 +380,7 @@ class gEventCollection(object):
             eventCounter = 0
 
             # Convert tree to numpy array
-            treeArray = tree.AsMatrix()
+            self.treeArray = tree.AsMatrix()
 
             # Get the branch names
             branchListObj = tree.GetListOfBranches()
@@ -387,47 +389,62 @@ class gEventCollection(object):
                 branchName.append(branchListObj[i].GetName())
 
             # Find unique eventIDs
-            uniqueEventIDs = np.unique(treeArray[:, 0])
-            if eventCounterRange:
-                uniqueEventIDsCut = uniqueEventIDs[
-                    eventCounterRange[0] : eventCounterRange[1]
-                ]
-            else:
-                uniqueEventIDsCut = uniqueEventIDs
-
-            # Parse eventIDs to eventcollections
-            for i in range(uniqueEventIDsCut.size):
-                eventID = uniqueEventIDsCut[i]
-                hitsInfo = {}
-
-                particleEvent = gEvent(gEventID=eventID)
-                idxSlice = treeArray[:, 0] == eventID
-
-                particleEvent.trackID = treeArray[idxSlice, 1]
-                particleEvent.parentID = treeArray[idxSlice, 2]
-                particleEvent.x = treeArray[idxSlice, 3]
-                particleEvent.y = treeArray[idxSlice, 4]
-                particleEvent.z = treeArray[idxSlice, 5] + zoffset
-                particleEvent.energy = treeArray[idxSlice, 6]
-                particleEvent.particle = treeArray[idxSlice, 7]
-                particleEvent.creatorProcess = treeArray[idxSlice, 8]
-
-                try:
-                    particleEvent.secondaryTrackID = treeArray[idxSlice, 9]
-                    particleEvent.xi = treeArray[idxSlice, 10]
-                    particleEvent.yi = treeArray[idxSlice, 11]
-                    particleEvent.zi = treeArray[idxSlice, 12] + zoffset
-                except IndexError:
-                    particleEvent.secondaryTrackID = [-1]
-                    particleEvent.xi = np.array([0])
-                    particleEvent.yi = np.array([0])
-                    particleEvent.zi = np.array([0]) + zoffset
-
-                self.collection.append(particleEvent)
-
+            self.uniqueEventIDs = np.unique(self.treeArray[:, 0])
+            self.parseCollection(eventCounterRange, zoffset)
             self.totalNEvents = len(self.collection)
+
         else:
             self.totalNEvents = 0
+
+    def parseCollection(self, eventCounterRange=None, zoffset=0):
+
+        self.collection = []
+        if eventCounterRange:
+                uniqueEventIDsCut = self.uniqueEventIDs[
+                    eventCounterRange[0] : eventCounterRange[1]
+                ]
+        else:
+            uniqueEventIDsCut = self.uniqueEventIDs
+
+        # make a smaller tree
+        try:
+            fi = (self.treeArray[:, 0] == uniqueEventIDsCut[0]).nonzero()[0][0]# find first index in event range
+            li = (self.treeArray[:, 0] == uniqueEventIDsCut[-1]).nonzero()[0][-1]# find last index in event range
+            smalltreeArray = self.treeArray[fi:(li+1), :]
+        except IndexError:
+            pass
+
+        # Parse eventIDs to eventcollections
+        for i in range(len(uniqueEventIDsCut)):
+            eventID = uniqueEventIDsCut[i]
+            hitsInfo = {}
+
+            particleEvent = gEvent(gEventID=eventID)
+            idxSlice = smalltreeArray[:, 0] == eventID
+
+            particleEvent.trackID = smalltreeArray[idxSlice, 1]
+            particleEvent.parentID = smalltreeArray[idxSlice, 2]
+            particleEvent.x = smalltreeArray[idxSlice, 3] / 1.e3
+            particleEvent.y = smalltreeArray[idxSlice, 4] / 1.e3
+            particleEvent.z = smalltreeArray[idxSlice, 5] / 1.e3 + zoffset
+            particleEvent.energy = smalltreeArray[idxSlice, 6]
+            particleEvent.particle = smalltreeArray[idxSlice, 7]
+            particleEvent.creatorProcess = smalltreeArray[idxSlice, 8]
+
+            try:
+                particleEvent.secondaryTrackID = smalltreeArray[idxSlice, 9]
+                particleEvent.xi = smalltreeArray[idxSlice, 10]
+                particleEvent.yi = smalltreeArray[idxSlice, 11]
+                particleEvent.zi = smalltreeArray[idxSlice, 12] + zoffset
+            except IndexError:
+                particleEvent.secondaryTrackID = [-1]
+                particleEvent.xi = np.array([0])
+                particleEvent.yi = np.array([0])
+                particleEvent.zi = np.array([0]) + zoffset
+
+            self.collection.append(particleEvent)
+
+        self.totalNEvents = len(self.collection)
 
     def __str__(self):
         return "Geant4 Event Collection. N=%i" % len(self.collection)
