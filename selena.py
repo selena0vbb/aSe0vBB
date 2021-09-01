@@ -89,6 +89,7 @@ def main(argv):
                 particlefilename,
                 eventCounterRange=[j * filesize, (j + 1) * filesize - 1],
                 zoffset=settings["Z_OFFSET"],
+                **settings
             )
             simObj.newEventCollection(newEventCollection)
             for i in range(len(newEventCollection.collection)):
@@ -108,7 +109,7 @@ def main(argv):
                     and zr < settings["Z_MAX"]
                     # and zmean < 0.06
                     # and zmean > 0.01
-                    # and eevent > 115
+                    and eevent > 0.115
                 ):
                     indx.append(i)
 

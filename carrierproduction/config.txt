@@ -6,33 +6,39 @@ CARRIER_GENERATION_BINOMIAL=0
 DARK_CURRENT_BINOMIAL=0
 CARRIER_LIFETIME_GEOMETRIC=0
 CARRIER_LIFETIME_POISSON=0
-CARRIER_SCHEMA=track
+CARRIER_SCHEMA=bin
 
 # Recombination Model. Length units in mm (as always)
-COLUMNAR_RECOMBINATION=1
+COLUMNAR_RECOMBINATION=0
 TRACK_RADIUS=2.44e-6
 LINEAR_IONIZATION_DENSITY=5.46e5
 SATURATION_WF=0.0055
 
 # EM settings
 CHARGE_DIFFERENCE=0
-VOLTAGE_SWEEP_INDEX=0
-FIELD_SCALE=2
+VOLTAGE_SWEEP_INDEX=5
+FIELD_SCALE=2000
 SCALE_WEIGHTED_PHI=0
 USE_BOUNDARY_LIMITS=1
 UNIT_CONVERSION_FACTOR=1.e3
 ELEMENTARY_CHARGE=1.6e-19
 ROUND_FINAL_WEIGHTED_PHI=1
 SAVE_PARTIAL_PULSES=1
-X_MIN=-0.8
-X_MAX=0.8
-DX=0.01
-Y_MIN=-0.8
-Y_MAX=0.8
-DY=0.01
-Z_MIN=-0.0999
-Z_MAX=0.099
-DZ=0.004
+X_MIN=-0.0415
+X_MAX=0.0415
+DX=0.002
+Y_MIN=-0.0415
+Y_MAX=0.0415
+DY=0.002
+Z_MIN=0.0001
+Z_MAX=0.4999
+DZ=0.005
+Z_OFFSET=0.250
+X_PERIODIC=1
+X_PERIOD=0.083
+Y_PERIODIC=1
+Y_PERIOD=0.083
+
 
 # aSe Properties
 # Mu in mm^2/(V*us)
@@ -42,23 +48,23 @@ MU_ELECTRONS=0.809e-6
 TAU_HOLES=35.0
 TAU_ELECTRONS=440.0
 # dt for motion is us
-DT_HOLES=0.01
-DT_ELECTRONS=0.8
+DT_HOLES=0.1
+DT_ELECTRONS=2.0
 # Total allowed time
 TOTAL_TIME_HOLES=20
 TOTAL_TIME_ELECTRONS=200
-WORK_FUNCTION=0.018+449.0/E
+WORK_FUNCTION=0.0001 + 0*E
 
 
 # Simulation Settings
-FAST=1
+FAST=0
 PARALLEL_PROCESS=1
-NPROCESSORS=24.
-NEVENTS_PER_FILE=2000
-GIT_DIR=/home/apiers/aSe0vBB
-OUTPUT_DIR=/home/apiers/selena/data/carrier/recombination
-OUTPUT_FILE=pixel_track_recombination_fitpar_250nm_%i.cso
-EM_FILENAME=/home/apiers/selena/data/em/pixel_detector_2mmdiam_200umAse_3d_small.txt
-PARTICLE_FILENAME=/home/apiers/selena/data/particle/pixel_200umaSe_silayer_250nm_122kev_100k.root
+NPROCESSORS=4.
+NEVENTS_PER_FILE=10000
+GIT_DIR=/home/apiers/Documents/selena/aSe0vBB
+OUTPUT_DIR=/home/apiers/Documents/selena/aSe0vBB
+OUTPUT_FILE=top_metal_5per_gring_voltage_10k_%i.cso
+EM_FILENAME=/home/apiers/Documents/selena/top-metal-II/analysis/comsol-simulations/single-topmetal-pixel-fields.txt
+PARTICLE_FILENAME=/home/apiers/Documents/selena/aSe0vBB/particle/pixel_200umaSe_disksource_500nm_122kev_100k.root
 THREE_DIMENSIONS=1
 

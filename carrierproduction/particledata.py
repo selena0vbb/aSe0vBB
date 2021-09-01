@@ -21,6 +21,7 @@ import scipy.special
 # add the EM plot module to the path and import it
 sys.path.append(os.path.join(os.path.dirname(sys.path[0]), "EM Analysis"))
 sys.path.append(os.path.join(sys.path[0], "EM Analysis"))
+sys.path.append("/home/apiers/Documents/selena/aSe0vBB/EM Analysis")
 from plot import (
     readComsolFileGrid,
     readComsolFileGrid3d,
@@ -299,7 +300,7 @@ class gEvent(object):
                 wehp[xv[i], yv[i], zv[i]] = wehpFunction()
         else:
             # Use standard value of 50 eV if no E field information is passed\
-            wehp = 0.05 * np.ones(val.shape)
+            wehp = 0.00005 * np.ones(val.shape)
 
         # histogrammed data are in a (nbinx x nbiny x nbinz) array. Simply divide by Wehp to get the energy as a distribution of position
         nehp = val / wehp
@@ -332,7 +333,7 @@ class gEvent(object):
                 self, efield, **settings
             )
         else:
-            wehp = 0.05 * np.ones(len(self.energy))
+            wehp = 0.00005 * np.ones(len(self.energy))
 
             # If have efield and wehp function compute the functional form
             if wehpFunction and efield:
@@ -378,7 +379,7 @@ class gEventCollection(object):
             eventCounter = 0
 
             # Convert tree to numpy array
-            treeArray = tree.AsMatrix()
+            treeArray = tree.AsMatrix(["EventID", "TrackID", "ParentID", "x", "y", "z", "energy", "SecondaryTrackID", "xi", "yi", "zi" ])
 
             # Get the branch names
             branchListObj = tree.GetListOfBranches()
@@ -409,19 +410,35 @@ class gEventCollection(object):
                 particleEvent.y = treeArray[idxSlice, 4]
                 particleEvent.z = treeArray[idxSlice, 5] + zoffset
                 particleEvent.energy = treeArray[idxSlice, 6]
-                particleEvent.particle = treeArray[idxSlice, 7]
-                particleEvent.creatorProcess = treeArray[idxSlice, 8]
+                # particleEvent.particle = treeArray[idxSlice, 7]
+                # particleEvent.creatorProcess = treeArray[idxSlice, 8]
 
                 try:
-                    particleEvent.secondaryTrackID = treeArray[idxSlice, 9]
-                    particleEvent.xi = treeArray[idxSlice, 10]
-                    particleEvent.yi = treeArray[idxSlice, 11]
-                    particleEvent.zi = treeArray[idxSlice, 12] + zoffset
+                    particleEvent.secondaryTrackID = treeArray[idxSlice, 7]
+                    particleEvent.xi = treeArray[idxSlice, 8]
+                    particleEvent.yi = treeArray[idxSlice, 9]
+                    particleEvent.zi = treeArray[idxSlice, 10] + zoffset
                 except IndexError:
                     particleEvent.secondaryTrackID = [-1]
                     particleEvent.xi = np.array([0])
                     particleEvent.yi = np.array([0])
                     particleEvent.zi = np.array([0]) + zoffset
+
+                if "X_PERIODIC" in kwargs:
+                    if kwargs["X_PERIODIC"]:
+                        particleEvent.x = particleEvent.x % kwargs["X_PERIOD"]
+                        particleEvent.xi = particleEvent.xi % kwargs["X_PERIOD"]
+
+                        particleEvent.x[particleEvent.x > kwargs["X_MAX"]] -= kwargs["X_PERIOD"] 
+                        particleEvent.xi[particleEvent.xi > kwargs["X_MAX"]] -= kwargs["X_PERIOD"] 
+
+                if "Y_PERIODIC" in kwargs:
+                    if kwargs["Y_PERIODIC"]:
+                        particleEvent.y = particleEvent.y % kwargs["Y_PERIOD"]
+                        particleEvent.yi = particleEvent.yi % kwargs["Y_PERIOD"]
+
+                        particleEvent.y[particleEvent.y > kwargs["Y_MAX"]] -= kwargs["Y_PERIOD"] 
+                        particleEvent.yi[particleEvent.yi > kwargs["Y_MAX"]] -= kwargs["Y_PERIOD"] 
 
                 self.collection.append(particleEvent)
 
@@ -1152,7 +1169,7 @@ def filterSignal(signal, time, freqResponseFile):
 def numberOfEvents(rootFile, key="EneDepSe"):
     """ Reads the root file and calculates the number of entries in the file"""
     f = rt.TFile(rootFile)
-    obj = f.Get(key)
+    obj = f.Get(key) 
 
     return obj.GetEntries()
 

@@ -199,7 +199,7 @@ class SimulatedPulse(object):
             self.g4Event.x, self.g4Event.y, self.g4Event.z
         )
         self.meanWeightedPosition = self.computeMeanWeightedPosition(
-            self.g4Event.x, self.g4Event.y, self.g4Event.z
+            self.g4Event.x, self.g4Event.y, self.g4Event.z, self.g4Event.energy
         )
         self.sigmaPosition = self.computeSigmaPosition(
             self.g4Event.x, self.g4Event.y, self.g4Event.z
@@ -273,7 +273,7 @@ class SimulatedOutputFile(object):
         infostr += str(self.outputfile)
 
         # Add settings info
-        for key, val in self.settings.iteritems():
+        for key, val in self.settings.items():
             infostr += "\n%s: " % key
             infostr += str(val)
 
@@ -444,7 +444,7 @@ if __name__ == "__main__":
 
     # Create the data for the simulated pulse objects
 
-    Load test particle data
+    # Load test particle data
     eventCol = pd.gEventCollection(
         "/home/apiers/mnt/rocks/selena/data/particle/pixel_sio2_122kev_12degBeam_100k.root",
         eventCounterRange=[0, 5],
